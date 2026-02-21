@@ -10,6 +10,8 @@ mod commands;
 #[allow(dead_code)]
 mod config;
 #[allow(dead_code)]
+mod daemon;
+#[allow(dead_code)]
 mod registry;
 #[allow(dead_code)]
 mod scanner;
