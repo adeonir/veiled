@@ -1,7 +1,8 @@
+# Local development files
 .artifacts
 .serena
+docs
 
 
-# Added by cargo
-
+# Build artifacts
 /target
