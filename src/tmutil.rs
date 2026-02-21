@@ -16,6 +16,21 @@ pub fn add_exclusion(path: &Path) -> Result<(), String> {
     }
 }
 
+pub fn remove_exclusion(path: &Path) -> Result<(), String> {
+    let output = Command::new("tmutil")
+        .arg("removeexclusion")
+        .arg(path)
+        .output()
+        .map_err(|e| format!("failed to run tmutil: {e}"))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(format!("tmutil removeexclusion failed: {stderr}"))
+    }
+}
+
 pub fn is_excluded(path: &Path) -> Result<bool, String> {
     let output = Command::new("tmutil")
         .arg("isexcluded")
@@ -51,6 +66,13 @@ mod tests {
     #[test]
     fn parses_empty_output() {
         assert!(!parse_is_excluded(""));
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn remove_exclusion_on_nonexistent_path() {
+        let result = remove_exclusion(Path::new("/nonexistent/path/that/does/not/exist"));
+        assert!(result.is_err());
     }
 
     #[test]

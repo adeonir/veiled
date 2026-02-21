@@ -58,6 +58,18 @@ fn expand_paths(config: &mut Config) {
     }
 }
 
+pub fn save(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    save_to(config, &config_path())
+}
+
+pub fn save_to(config: &Config, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, serde_json::to_string_pretty(config)?)?;
+    Ok(())
+}
+
 pub fn load() -> Result<Config, Box<dyn std::error::Error>> {
     load_from(&config_path())
 }
@@ -165,6 +177,32 @@ mod tests {
 
         assert_eq!(config.search_paths.len(), 1);
         assert!(config.auto_update);
+    }
+
+    #[test]
+    fn save_and_load_roundtrip() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("config.json");
+
+        let mut config = Config::default();
+        config.extra_exclusions = vec!["/Users/dev/cache".to_string()];
+        save_to(&config, &path).unwrap();
+
+        let loaded = load_from(&path).unwrap();
+
+        assert_eq!(loaded.extra_exclusions.len(), 1);
+        assert!(loaded.auto_update);
+    }
+
+    #[test]
+    fn save_creates_parent_dirs() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("nested/dir/config.json");
+
+        let config = Config::default();
+        save_to(&config, &path).unwrap();
+
+        assert!(path.exists());
     }
 
     #[test]
