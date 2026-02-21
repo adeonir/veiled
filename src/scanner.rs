@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use crate::builtins;
 
@@ -23,6 +24,25 @@ pub fn parse_git_ignored(repo_path: &Path, output: &str) -> Vec<PathBuf> {
     }
 
     dirs.into_iter().collect()
+}
+
+pub fn scan_git_repo(repo_path: &Path) -> Vec<PathBuf> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(repo_path)
+        .args(["ls-files", "--ignored", "--others", "--exclude-standard"])
+        .output();
+
+    let Ok(output) = output else {
+        return vec![];
+    };
+
+    if !output.status.success() {
+        return vec![];
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    parse_git_ignored(repo_path, &stdout)
 }
 
 pub fn scan_non_git_dir(path: &Path) -> Vec<PathBuf> {
@@ -104,6 +124,35 @@ mod tests {
         assert!(results.contains(&repo.join("node_modules")));
         assert!(results.contains(&repo.join("target")));
         assert!(results.contains(&repo.join(".next")));
+    }
+
+    #[test]
+    fn scan_git_repo_finds_ignored_builtin_dirs() {
+        let dir = TempDir::new().unwrap();
+        let repo = dir.path();
+
+        Command::new("git").arg("init").arg(repo).output().unwrap();
+        fs::write(repo.join(".gitignore"), "node_modules/\ntarget/\n").unwrap();
+        fs::create_dir(repo.join("node_modules")).unwrap();
+        fs::write(repo.join("node_modules/pkg.json"), "{}").unwrap();
+        fs::create_dir(repo.join("target")).unwrap();
+        fs::write(repo.join("target/output"), "bin").unwrap();
+        fs::create_dir(repo.join("src")).unwrap();
+        fs::write(repo.join("src/main.rs"), "fn main() {}").unwrap();
+
+        let results = scan_git_repo(repo);
+
+        assert_eq!(results.len(), 2);
+        assert!(results.contains(&repo.join("node_modules")));
+        assert!(results.contains(&repo.join("target")));
+    }
+
+    #[test]
+    fn scan_git_repo_returns_empty_for_non_git_dir() {
+        let dir = TempDir::new().unwrap();
+        let results = scan_git_repo(dir.path());
+
+        assert!(results.is_empty());
     }
 
     #[test]
