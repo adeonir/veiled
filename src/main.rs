@@ -4,6 +4,8 @@ use clap::Parser;
 mod builtins;
 mod cli;
 mod commands;
+#[allow(dead_code)]
+mod config;
 
 fn main() {
     let cli = cli::Cli::parse();
