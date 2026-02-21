@@ -35,10 +35,13 @@ fn config_path() -> PathBuf {
 }
 
 pub fn expand_tilde(path: &str) -> PathBuf {
-    if let Some(rest) = path.strip_prefix("~/")
-        && let Some(home) = dirs::home_dir()
-    {
-        return home.join(rest);
+    if let Some(home) = dirs::home_dir() {
+        if path == "~" {
+            return home;
+        }
+        if let Some(rest) = path.strip_prefix("~/") {
+            return home.join(rest);
+        }
     }
     PathBuf::from(path)
 }
@@ -62,7 +65,7 @@ pub fn load() -> Result<Config, Box<dyn std::error::Error>> {
 pub fn load_from(path: &Path) -> Result<Config, Box<dyn std::error::Error>> {
     let mut config = if path.exists() {
         let file = fs::File::open(path)?;
-        serde_json::from_reader(BufReader::new(file))?
+        serde_json::from_reader(BufReader::new(file)).unwrap_or_default()
     } else {
         let config = Config::default();
         if let Some(parent) = path.parent() {
@@ -121,6 +124,14 @@ mod tests {
     }
 
     #[test]
+    fn expands_bare_tilde() {
+        let home = dirs::home_dir().unwrap();
+        let expanded = expand_tilde("~");
+
+        assert_eq!(expanded, home);
+    }
+
+    #[test]
     fn leaves_absolute_paths_unchanged() {
         let expanded = expand_tilde("/usr/local/bin");
 
@@ -141,6 +152,19 @@ mod tests {
             config.search_paths[0]
         );
         assert!(!config.search_paths[0].contains('~'));
+    }
+
+    #[test]
+    fn falls_back_to_defaults_on_malformed_config() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("config.json");
+
+        fs::write(&path, "").unwrap();
+
+        let config = load_from(&path).unwrap();
+
+        assert_eq!(config.search_paths.len(), 1);
+        assert!(config.auto_update);
     }
 
     #[test]
