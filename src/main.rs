@@ -9,6 +9,8 @@ mod config;
 #[allow(dead_code)]
 mod registry;
 #[allow(dead_code)]
+mod scanner;
+#[allow(dead_code)]
 mod tmutil;
 
 fn main() {
