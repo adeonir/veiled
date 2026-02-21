@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Registry {
     pub paths: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub saved_bytes: Option<u64>,
 }
 
 fn registry_path() -> PathBuf {
@@ -134,5 +136,39 @@ mod tests {
         assert_eq!(loaded.list().len(), 2);
         assert!(loaded.contains("/Users/dev/app/node_modules"));
         assert!(loaded.contains("/Users/dev/api/target"));
+    }
+
+    #[test]
+    fn saved_bytes_defaults_to_none() {
+        let registry = Registry::default();
+        assert!(registry.saved_bytes.is_none());
+    }
+
+    #[test]
+    fn saved_bytes_persists_on_roundtrip() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("registry.json");
+
+        let mut registry = Registry::default();
+        registry.add("/Users/dev/project/node_modules");
+        registry.saved_bytes = Some(1_073_741_824);
+        registry.save_to(&path).unwrap();
+
+        let loaded = Registry::load_from(&path).unwrap();
+
+        assert_eq!(loaded.saved_bytes, Some(1_073_741_824));
+    }
+
+    #[test]
+    fn missing_saved_bytes_loads_as_none() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("registry.json");
+
+        fs::write(&path, r#"{"paths": ["/Users/dev/node_modules"]}"#).unwrap();
+
+        let loaded = Registry::load_from(&path).unwrap();
+
+        assert_eq!(loaded.list().len(), 1);
+        assert!(loaded.saved_bytes.is_none());
     }
 }
