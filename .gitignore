@@ -1,6 +1,7 @@
 # Local development files
 .artifacts
 .serena
+.env
 docs
 
 

@@ -30,6 +30,12 @@ jobs:
           cp target/release/veiled veiled-macos-arm64
           cp target/x86_64-apple-darwin/release/veiled veiled-macos-x64
 
+      - name: Compute checksums
+        id: hashes
+        run: |
+          echo "arm64=$(shasum -a 256 veiled-macos-arm64 | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          echo "x64=$(shasum -a 256 veiled-macos-x64 | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
       - name: Create release
         run: |
           gh release create "${{ github.ref_name }}" \
@@ -39,3 +45,24 @@ jobs:
             --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Homebrew formula
+        if: env.HOMEBREW_TAP_TOKEN != ''
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+
+          git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/adeonir/homebrew-tap.git /tmp/homebrew-tap
+          cd /tmp/homebrew-tap
+
+          sed -i '' "s/version \".*\"/version \"${VERSION}\"/" Formula/veiled.rb
+          sed -i '' "/veiled-macos-arm64/{n;s/sha256 \".*\"/sha256 \"${{ steps.hashes.outputs.arm64 }}\"/;}" Formula/veiled.rb
+          sed -i '' "/veiled-macos-x64/{n;s/sha256 \".*\"/sha256 \"${{ steps.hashes.outputs.x64 }}\"/;}" Formula/veiled.rb
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/veiled.rb
+          git commit -m "veiled ${{ github.ref_name }}"
+          git push
