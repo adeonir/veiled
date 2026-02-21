@@ -80,8 +80,20 @@ fn list_exits_successfully() {
 // -- status command --
 
 #[test]
-fn status_exits_successfully() {
-    veiled().arg("status").assert().success();
+fn status_shows_daemon_state() {
+    veiled()
+        .arg("status")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Daemon:"));
+}
+
+#[test]
+fn status_shows_exclusion_info() {
+    veiled().arg("status").assert().success().stdout(
+        predicate::str::contains("excluded by veiled")
+            .or(predicate::str::contains("No exclusions")),
+    );
 }
 
 // -- reset command --
@@ -100,17 +112,29 @@ fn reset_help_shows_yes_flag() {
         .stdout(predicate::str::contains("--yes"));
 }
 
-// -- stub commands --
+// -- start command --
 
 #[test]
-fn start_exits_successfully() {
-    veiled().arg("start").assert().success();
+fn start_help_shows_description() {
+    veiled()
+        .args(["start", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::is_empty().not());
 }
 
+// -- stop command --
+
 #[test]
-fn stop_exits_successfully() {
-    veiled().arg("stop").assert().success();
+fn stop_without_daemon_prints_message() {
+    veiled()
+        .arg("stop")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("not running"));
 }
+
+// -- update command --
 
 #[test]
 fn update_exits_successfully() {
