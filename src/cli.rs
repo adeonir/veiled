@@ -1,8 +1,7 @@
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
-#[command(name = "veiled", version)]
-#[command(about = "A macOS CLI to exclude development artifacts from Time Machine backups")]
+#[command(name = "veiled", version, about)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
