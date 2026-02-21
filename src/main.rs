@@ -11,6 +11,8 @@ mod daemon;
 mod registry;
 mod scanner;
 mod tmutil;
+#[allow(dead_code)]
+mod updater;
 
 fn main() {
     let cli = cli::Cli::parse();
