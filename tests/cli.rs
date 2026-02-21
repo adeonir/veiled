@@ -26,6 +26,15 @@ fn help_displays_all_commands() {
 }
 
 #[test]
+fn help_shows_package_description() {
+    veiled()
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Time Machine"));
+}
+
+#[test]
 fn version_displays_cargo_version() {
     veiled()
         .arg("--version")
