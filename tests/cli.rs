@@ -105,6 +105,20 @@ fn status_shows_exclusion_info() {
     );
 }
 
+#[test]
+fn status_refresh_flag_accepted() {
+    veiled().args(["status", "--refresh"]).assert().success();
+}
+
+#[test]
+fn status_help_shows_refresh_flag() {
+    veiled()
+        .args(["status", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--refresh"));
+}
+
 // -- reset command --
 
 #[test]
