@@ -1,0 +1,16 @@
+[package]
+name = "veiled"
+version = "0.0.1"
+edition = "2024"
+description = "A macOS CLI to automatically exclude development artifacts from Time Machine backups"
+license = "MIT"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+
+[profile.release]
+strip = true
+lto = true
