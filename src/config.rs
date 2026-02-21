@@ -16,7 +16,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            search_paths: vec!["~/Projects".to_string()],
+            search_paths: vec!["~/Projects".to_string(), "~/Developer".to_string()],
             extra_exclusions: vec![],
             ignore_paths: vec![
                 "~/.Trash".to_string(),
@@ -104,7 +104,7 @@ mod tests {
         let config = load_from(&path).unwrap();
 
         assert!(path.exists());
-        assert_eq!(config.search_paths.len(), 1);
+        assert_eq!(config.search_paths.len(), 2);
         assert!(config.auto_update);
     }
 
@@ -175,7 +175,7 @@ mod tests {
 
         let config = load_from(&path).unwrap();
 
-        assert_eq!(config.search_paths.len(), 1);
+        assert_eq!(config.search_paths.len(), 2);
         assert!(config.auto_update);
     }
 
@@ -215,7 +215,7 @@ mod tests {
         let config = load_from(&path).unwrap();
 
         assert!(!config.auto_update);
-        assert_eq!(config.search_paths.len(), 1);
+        assert_eq!(config.search_paths.len(), 2);
         assert_eq!(config.ignore_paths.len(), 3);
     }
 }

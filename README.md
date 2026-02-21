@@ -15,10 +15,10 @@ brew install adeonir/tap/veiled
 ## Quick start
 
 ```sh
-veiled run
+veiled start
 ```
 
-This scans your configured search paths and excludes all recognized development artifacts from Time Machine.
+This installs the binary, activates the daily daemon, and runs an immediate scan to exclude all recognized development artifacts from Time Machine.
 
 ## Usage
 
@@ -39,14 +39,14 @@ veiled stores its configuration at `~/.config/veiled/config.json`. If the file d
 
 ```json
 {
-  "searchPaths": ["~/Projects"],
+  "searchPaths": ["~/Projects", "~/Developer"],
   "extraExclusions": [],
   "ignorePaths": ["~/.Trash", "~/Library", "~/Downloads"],
   "autoUpdate": true
 }
 ```
 
-- **searchPaths** -- Directories to scan for projects. Defaults to `["~/Projects"]`.
+- **searchPaths** -- Directories to scan for projects. Defaults to `["~/Projects", "~/Developer"]`.
 - **extraExclusions** -- Additional directory names to exclude beyond the built-in list. Defaults to `[]`.
 - **ignorePaths** -- Paths to skip entirely during scans. Defaults to `["~/.Trash", "~/Library", "~/Downloads"]`.
 - **autoUpdate** -- Check for new versions automatically when running a scan. Defaults to `true`.
