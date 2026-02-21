@@ -25,6 +25,10 @@ Pre-commit hooks (via lefthook) run fmt, clippy, and tests in parallel on every 
 src/
   main.rs          # Entrypoint: parses CLI args, dispatches to command modules
   cli.rs           # clap derive structs: Cli (Parser) and Commands (Subcommand enum)
+  builtins.rs      # Static list of known dev artifact directory names (node_modules, target, .venv, etc.)
+  config.rs        # Config loading from ~/.config/veiled/config.json with load-or-create and tilde expansion
+  registry.rs      # Tracks managed exclusions in ~/.config/veiled/registry.json (add/remove/list/contains)
+  tmutil.rs        # Wraps macOS tmutil commands (addexclusion, isexcluded) with structured results
   commands/
     mod.rs          # Re-exports all command modules
     {command}.rs    # One file per subcommand with pub fn execute()
@@ -34,7 +38,9 @@ tests/
 
 The CLI uses clap derive macros. Each subcommand is a variant in `Commands` enum (cli.rs), and `main.rs` matches on it to call the corresponding `commands::{name}::execute()` function. Doc comments on enum variants become the `--help` descriptions.
 
-8 subcommands: start, stop, run, list, reset, add, status, update. All are stubs currently.
+8 subcommands: start, stop, run, list, reset, add, status, update. Commands are stubs; core modules (builtins, config, registry, tmutil) are implemented.
+
+Config uses `#[serde(default, rename_all = "camelCase")]` so JSON fields are camelCase while Rust fields are snake_case. Partial configs fill missing fields from defaults. All path fields undergo tilde expansion after loading. The tmutil module isolates stdout parsing from command execution so parsing logic is testable cross-platform.
 
 ## Workflow
 
