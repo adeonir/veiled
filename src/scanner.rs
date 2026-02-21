@@ -4,6 +4,32 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::builtins;
+use crate::config::Config;
+use crate::tmutil;
+
+pub fn scan(config: &Config) -> Vec<PathBuf> {
+    collect_paths(config)
+        .into_iter()
+        .filter(|p| !tmutil::is_excluded(p).unwrap_or(false))
+        .collect()
+}
+
+fn collect_paths(config: &Config) -> Vec<PathBuf> {
+    let mut paths: HashSet<PathBuf> = traverse(&config.search_paths, &config.ignore_paths)
+        .into_iter()
+        .collect();
+
+    for extra in &config.extra_exclusions {
+        let path = PathBuf::from(extra);
+        if path.is_dir() {
+            paths.insert(path);
+        }
+    }
+
+    let mut results: Vec<PathBuf> = paths.into_iter().collect();
+    results.sort();
+    results
+}
 
 pub fn parse_git_ignored(repo_path: &Path, output: &str) -> Vec<PathBuf> {
     let mut dirs = HashSet::new();
@@ -256,6 +282,110 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert!(results[0].ends_with("node_modules"));
+    }
+
+    fn test_config(
+        search_paths: Vec<String>,
+        ignore_paths: Vec<String>,
+        extra_exclusions: Vec<String>,
+    ) -> Config {
+        Config {
+            search_paths,
+            ignore_paths,
+            extra_exclusions,
+            auto_update: false,
+        }
+    }
+
+    #[test]
+    fn collect_paths_includes_traversed() {
+        let dir = TempDir::new().unwrap();
+        let project = dir.path().join("project");
+        fs::create_dir(&project).unwrap();
+        fs::create_dir(project.join("node_modules")).unwrap();
+
+        let config = test_config(
+            vec![dir.path().to_string_lossy().into_owned()],
+            vec![],
+            vec![],
+        );
+
+        let results = collect_paths(&config);
+
+        assert!(results.iter().any(|p| p.ends_with("node_modules")));
+    }
+
+    #[test]
+    fn collect_paths_includes_extra_exclusions() {
+        let dir = TempDir::new().unwrap();
+        let extra = dir.path().join("extra_cache");
+        fs::create_dir(&extra).unwrap();
+
+        let config = test_config(vec![], vec![], vec![extra.to_string_lossy().into_owned()]);
+
+        let results = collect_paths(&config);
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0], extra);
+    }
+
+    #[test]
+    fn collect_paths_skips_nonexistent_extra_exclusions() {
+        let config = test_config(vec![], vec![], vec!["/nonexistent/extra/path".to_string()]);
+
+        let results = collect_paths(&config);
+
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn collect_paths_deduplicates_results() {
+        let dir = TempDir::new().unwrap();
+        let project = dir.path().join("project");
+        fs::create_dir(&project).unwrap();
+        let nm = project.join("node_modules");
+        fs::create_dir(&nm).unwrap();
+
+        let config = test_config(
+            vec![dir.path().to_string_lossy().into_owned()],
+            vec![],
+            vec![nm.to_string_lossy().into_owned()],
+        );
+
+        let results = collect_paths(&config);
+
+        assert_eq!(
+            results
+                .iter()
+                .filter(|p| p.ends_with("node_modules"))
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn collect_paths_returns_sorted_results() {
+        let dir = TempDir::new().unwrap();
+        let project = dir.path().join("project");
+        fs::create_dir(&project).unwrap();
+        fs::create_dir(project.join("target")).unwrap();
+        fs::create_dir(project.join("node_modules")).unwrap();
+        fs::create_dir(project.join(".venv")).unwrap();
+
+        let config = test_config(
+            vec![dir.path().to_string_lossy().into_owned()],
+            vec![],
+            vec![],
+        );
+
+        let results = collect_paths(&config);
+        let sorted: Vec<_> = {
+            let mut s = results.clone();
+            s.sort();
+            s
+        };
+
+        assert_eq!(results, sorted);
     }
 
     #[test]
