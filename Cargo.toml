@@ -2,7 +2,7 @@
 name = "veiled"
 version = "0.0.1"
 edition = "2024"
-description = "A macOS CLI to automatically exclude development artifacts from Time Machine backups"
+description = "Veiled CLI -- A macOS CLI to automatically exclude development artifacts from Time Machine backups"
 license = "MIT"
 repository = "https://github.com/adeonir/veiled"
 homepage = "https://adeonir.github.io/veiled"
