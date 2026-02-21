@@ -29,6 +29,7 @@ src/
   config.rs        # Config load/save from ~/.config/veiled/config.json with tilde expansion
   daemon.rs        # launchd plist generation, install/uninstall/status for the daily agent
   registry.rs      # Tracks managed exclusions in ~/.config/veiled/registry.json (add/remove/list/contains)
+  disksize.rs      # Recursive directory size calculation and human-readable formatting (MB/GB)
   scanner.rs       # Scans search paths: git ls-files for repos, directory traversal for non-git dirs, dedup + tmutil filtering
   tmutil.rs        # Wraps macOS tmutil commands (addexclusion, removeexclusion, isexcluded) with structured results
   updater.rs       # GitHub Releases version check, binary download and replacement
@@ -51,6 +52,8 @@ The CLI uses clap derive macros. Each subcommand is a variant in `Commands` enum
 Config uses `#[serde(default, rename_all = "camelCase")]` so JSON fields are camelCase while Rust fields are snake_case. Partial configs fill missing fields from defaults. All path fields undergo tilde expansion after loading. The tmutil module isolates stdout parsing from command execution so parsing logic is testable cross-platform.
 
 Scanner combines two strategies: `git ls-files --ignored --exclude-standard` for git repos, and direct directory traversal for non-git dirs. Both filter through `builtins::is_builtin()`. Results are deduplicated and filtered against `tmutil::is_excluded` to skip already-excluded paths.
+
+Data files live in `~/.config/veiled/`: `config.json` (user settings) and `registry.json` (managed exclusions + cached saved bytes). Both Config and Registry use a `load_from`/`save_to` pattern that accepts a `&Path` argument, allowing unit tests to use `tempfile::TempDir` instead of touching the real config directory. Integration tests in `tests/cli.rs` use `assert_cmd` with `cargo_bin_cmd!("veiled")` to run the compiled binary.
 
 ## Workflow
 
