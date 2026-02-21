@@ -3,10 +3,15 @@ use std::time::Duration;
 use console::style;
 use indicatif::ProgressBar;
 
-use crate::{config, registry, scanner, tmutil};
+use crate::{config, registry, scanner, tmutil, updater};
 
 pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     let config = config::load()?;
+
+    if config.auto_update {
+        let _ = updater::check();
+    }
+
     let mut reg = registry::Registry::load()?;
 
     let spinner = ProgressBar::new_spinner();
