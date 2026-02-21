@@ -39,6 +39,7 @@ pub fn is_builtin(name: &str) -> bool {
     BUILTIN_DIRS.contains(&name)
 }
 
+#[allow(dead_code)]
 pub fn list() -> &'static [&'static str] {
     BUILTIN_DIRS
 }

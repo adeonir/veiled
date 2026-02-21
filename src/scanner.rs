@@ -71,6 +71,7 @@ pub fn scan_git_repo(repo_path: &Path) -> Vec<PathBuf> {
     parse_git_ignored(repo_path, &stdout)
 }
 
+#[allow(dead_code)]
 pub fn scan_non_git_dir(path: &Path) -> Vec<PathBuf> {
     let Ok(entries) = fs::read_dir(path) else {
         return vec![];

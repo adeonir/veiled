@@ -48,6 +48,7 @@ impl Registry {
         }
     }
 
+    #[allow(dead_code)]
     pub fn remove(&mut self, path: &str) {
         self.paths.retain(|p| p != path);
     }
