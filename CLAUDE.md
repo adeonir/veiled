@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-veiled is a macOS CLI that automatically excludes development artifacts (node_modules, target, .venv, etc.) from Time Machine backups using `tmutil`. It scans project directories, identifies ignorable paths via `.gitignore` and built-in rules, and runs as a daily `launchd` daemon.
+Veiled CLI is a macOS CLI that automatically excludes development artifacts (node_modules, target, .venv, etc.) from Time Machine backups using `tmutil`. It scans project directories, identifies ignorable paths via `.gitignore` and built-in rules, and runs as a daily `launchd` daemon.
 
 ## Commands
 
@@ -27,24 +27,26 @@ src/
   cli.rs           # clap derive structs: Cli (Parser) and Commands (Subcommand enum)
   builtins.rs      # Static list of known dev artifact directory names (node_modules, target, .venv, etc.)
   config.rs        # Config load/save from ~/.config/veiled/config.json with tilde expansion
+  daemon.rs        # launchd plist generation, install/uninstall/status for the daily agent
   registry.rs      # Tracks managed exclusions in ~/.config/veiled/registry.json (add/remove/list/contains)
   scanner.rs       # Scans search paths: git ls-files for repos, directory traversal for non-git dirs, dedup + tmutil filtering
   tmutil.rs        # Wraps macOS tmutil commands (addexclusion, removeexclusion, isexcluded) with structured results
+  updater.rs       # GitHub Releases version check, binary download and replacement
   commands/
     mod.rs          # Re-exports all command modules
-    run.rs          # Scan and exclude new paths (spinner + summary)
+    run.rs          # Scan and exclude new paths (spinner + summary + silent auto-update check)
     list.rs         # Print all managed exclusion paths
-    status.rs       # Show count of managed exclusions
+    status.rs       # Show daemon state and exclusion count
     add.rs          # Add custom directory to exclusions (validates path, updates config + registry + tmutil)
     reset.rs        # Remove all exclusions (confirmation prompt, --yes to bypass)
-    start.rs        # Stub (feature 005 -- daemon)
-    stop.rs         # Stub (feature 005 -- daemon)
-    update.rs       # Stub (feature 006 -- updater)
+    start.rs        # Install binary to ~/.local/bin and activate the launchd daemon
+    stop.rs         # Deactivate daemon and remove the launch agent plist
+    update.rs       # Check for updates and install the latest version from GitHub Releases
 tests/
   cli.rs           # Integration tests using assert_cmd + predicates (runs the compiled binary)
 ```
 
-The CLI uses clap derive macros. Each subcommand is a variant in `Commands` enum (cli.rs), and `main.rs` matches on it to call the corresponding `commands::{name}::execute()` function. Doc comments on enum variants become the `--help` descriptions. All commands return `Result<(), Box<dyn std::error::Error>>`; main catches errors, prints them in red via `console::style`, and exits non-zero.
+The CLI uses clap derive macros. Each subcommand is a variant in `Commands` enum (cli.rs), and `main.rs` matches on it to call the corresponding `commands::{name}::execute()` function. Doc comments on enum variants become the `--help` descriptions. The top-level `about` text is derived from the Cargo.toml `description` field at compile time. All commands return `Result<(), Box<dyn std::error::Error>>`; main catches errors, prints them in red via `console::style`, and exits non-zero.
 
 Config uses `#[serde(default, rename_all = "camelCase")]` so JSON fields are camelCase while Rust fields are snake_case. Partial configs fill missing fields from defaults. All path fields undergo tilde expansion after loading. The tmutil module isolates stdout parsing from command execution so parsing logic is testable cross-platform.
 
@@ -62,4 +64,4 @@ Scanner combines two strategies: `git ls-files --ignored --exclude-standard` for
 - Release profile: `strip = true`, `lto = true`
 - Indentation: 4 spaces for Rust, 2 spaces for everything else (see .editorconfig)
 - Terminal output: `console` crate for colors, `indicatif` for spinners
-- Stub commands use `#[allow(clippy::unnecessary_wraps)]` since they return Result but only ever Ok
+- HTTP requests: `ureq` crate for GitHub API calls (updater)
