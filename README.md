@@ -23,14 +23,16 @@ This installs the binary, activates the daily daemon, and runs an immediate scan
 ## Usage
 
 ```sh
-veiled run       # Run a scan and exclude development artifacts
-veiled list      # List all paths currently excluded by veiled
-veiled status    # Show the number of managed exclusions
-veiled add .dir  # Add a custom directory to the exclusion list
-veiled reset     # Remove all exclusions managed by veiled
-veiled start     # Install binary and activate the daily daemon
-veiled stop      # Deactivate daemon and remove the launch agent
-veiled update    # Check for updates and install the latest version
+veiled run                # Run a scan and exclude development artifacts
+veiled list               # List all paths currently excluded by veiled
+veiled status             # Show daemon state, exclusion count, and saved space
+veiled status --refresh   # Recalculate saved space from current exclusions
+veiled add <path>         # Add a custom directory to the exclusion list
+veiled reset              # Remove all exclusions managed by veiled
+veiled reset --yes        # Skip confirmation prompt
+veiled start              # Install binary and activate the daily daemon
+veiled stop               # Deactivate daemon and remove the launch agent
+veiled update             # Check for updates and install the latest version
 ```
 
 ## Configuration
@@ -51,10 +53,21 @@ veiled stores its configuration at `~/.config/veiled/config.json`. If the file d
 - **ignorePaths** -- Paths to skip entirely during scans. Defaults to `["~/.Trash", "~/Library", "~/Downloads"]`.
 - **autoUpdate** -- Check for new versions automatically when running a scan. Defaults to `true`.
 
+**veiled** checks for new versions automatically during scans and updates itself. You can disable this by setting `autoUpdate` to `false` in the configuration, or run `veiled update` manually at any time.
+
 ## Requirements
 
 - macOS 12 (Monterey) or later
 - Full Disk Access may be required for `tmutil` to manage exclusions in protected paths (System Settings > Privacy & Security > Full Disk Access)
+
+## How it works
+
+1. **Scans** your project directories looking for development artifacts
+2. **Identifies** what to exclude using `.gitignore` rules, a built-in list of known directories, and any custom exclusions you define
+3. **Applies** Time Machine exclusions via `tmutil` for each matched path
+4. **Runs daily** as a background daemon, so new projects are covered automatically
+
+All exclusions are tracked in a local registry, so you can list, review, or reset them at any time.
 
 ## License
 
