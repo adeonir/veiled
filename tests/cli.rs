@@ -142,7 +142,18 @@ fn update_help_shows_description() {
         .args(["update", "--help"])
         .assert()
         .success()
-        .stdout(predicate::str::is_empty().not());
+        .stdout(predicate::str::contains(
+            "Update binary to the latest version",
+        ));
+}
+
+#[test]
+fn update_displays_current_version() {
+    // update will fail (no releases / network) but should print the current version first
+    veiled()
+        .arg("update")
+        .assert()
+        .stdout(predicate::str::contains(env!("CARGO_PKG_VERSION")));
 }
 
 // -- unknown command --
