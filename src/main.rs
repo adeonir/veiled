@@ -24,7 +24,7 @@ fn main() {
         cli::Commands::List => commands::list::execute(),
         cli::Commands::Reset { yes } => commands::reset::execute(yes),
         cli::Commands::Add { ref path } => commands::add::execute(path),
-        cli::Commands::Status => commands::status::execute(),
+        cli::Commands::Status { refresh } => commands::status::execute(refresh),
         cli::Commands::Update => commands::update::execute(),
     };
 

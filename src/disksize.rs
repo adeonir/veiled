@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::Path;
 
-#[allow(dead_code)]
 pub fn dir_size(path: &Path) -> u64 {
     let Ok(entries) = fs::read_dir(path) else {
         return 0;
@@ -24,12 +23,10 @@ pub fn dir_size(path: &Path) -> u64 {
     total
 }
 
-#[allow(dead_code)]
 pub fn calculate_total_size(paths: &[String]) -> u64 {
     paths.iter().map(|p| dir_size(Path::new(p))).sum()
 }
 
-#[allow(dead_code)]
 pub fn format_size(bytes: u64) -> String {
     const GB: f64 = 1_073_741_824.0;
     const MB: f64 = 1_048_576.0;

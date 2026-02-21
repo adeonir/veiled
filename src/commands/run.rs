@@ -3,7 +3,7 @@ use std::time::Duration;
 use console::style;
 use indicatif::ProgressBar;
 
-use crate::{config, registry, scanner, tmutil, updater};
+use crate::{config, disksize, registry, scanner, tmutil, updater};
 
 pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     let config = config::load()?;
@@ -47,6 +47,7 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
         excluded += 1;
     }
 
+    reg.saved_bytes = Some(disksize::calculate_total_size(reg.list()));
     reg.save()?;
 
     println!(

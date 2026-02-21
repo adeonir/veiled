@@ -29,7 +29,11 @@ pub enum Commands {
         path: String,
     },
     /// Show daemon state and exclusion stats
-    Status,
+    Status {
+        /// Recalculate saved space
+        #[arg(long)]
+        refresh: bool,
+    },
     /// Update binary to the latest version
     Update,
 }
