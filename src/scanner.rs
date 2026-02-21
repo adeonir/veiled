@@ -67,6 +67,43 @@ pub fn scan_non_git_dir(path: &Path) -> Vec<PathBuf> {
     results
 }
 
+pub fn traverse(search_paths: &[String], ignore_paths: &[String]) -> Vec<PathBuf> {
+    let ignore_set: HashSet<PathBuf> = ignore_paths.iter().map(PathBuf::from).collect();
+    let mut results = Vec::new();
+    let mut stack: Vec<PathBuf> = search_paths.iter().map(PathBuf::from).collect();
+
+    while let Some(dir) = stack.pop() {
+        if !dir.is_dir() || ignore_set.contains(&dir) {
+            continue;
+        }
+
+        if dir.join(".git").is_dir() {
+            results.extend(scan_git_repo(&dir));
+            continue;
+        }
+
+        let Ok(entries) = fs::read_dir(&dir) else {
+            continue;
+        };
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            if let Some(name) = path.file_name()
+                && builtins::is_builtin(&name.to_string_lossy())
+            {
+                results.push(path);
+            } else {
+                stack.push(path);
+            }
+        }
+    }
+
+    results
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -153,6 +190,72 @@ mod tests {
         let results = scan_git_repo(dir.path());
 
         assert!(results.is_empty());
+    }
+
+    #[test]
+    fn traverse_finds_builtin_in_git_repo() {
+        let dir = TempDir::new().unwrap();
+        let repo = dir.path().join("project");
+        fs::create_dir(&repo).unwrap();
+
+        Command::new("git").arg("init").arg(&repo).output().unwrap();
+        fs::write(repo.join(".gitignore"), "node_modules/\n").unwrap();
+        fs::create_dir(repo.join("node_modules")).unwrap();
+        fs::write(repo.join("node_modules/pkg.json"), "{}").unwrap();
+
+        let results = traverse(&[dir.path().to_string_lossy().into_owned()], &[]);
+
+        assert!(results.iter().any(|p| p.ends_with("node_modules")));
+    }
+
+    #[test]
+    fn traverse_finds_builtin_in_non_git_dir() {
+        let dir = TempDir::new().unwrap();
+        let project = dir.path().join("project");
+        fs::create_dir(&project).unwrap();
+        fs::create_dir(project.join("node_modules")).unwrap();
+
+        let results = traverse(&[dir.path().to_string_lossy().into_owned()], &[]);
+
+        assert!(results.iter().any(|p| p.ends_with("node_modules")));
+    }
+
+    #[test]
+    fn traverse_skips_ignore_paths() {
+        let dir = TempDir::new().unwrap();
+        let ignored = dir.path().join("ignored");
+        fs::create_dir(&ignored).unwrap();
+        fs::create_dir(ignored.join("node_modules")).unwrap();
+
+        let results = traverse(
+            &[dir.path().to_string_lossy().into_owned()],
+            &[ignored.to_string_lossy().into_owned()],
+        );
+
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn traverse_skips_nonexistent_search_path() {
+        let results = traverse(&["/nonexistent/search/path".to_string()], &[]);
+
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn traverse_does_not_descend_into_builtin_dirs() {
+        let dir = TempDir::new().unwrap();
+        let project = dir.path().join("project");
+        fs::create_dir(&project).unwrap();
+        let nm = project.join("node_modules");
+        fs::create_dir(&nm).unwrap();
+        // nested builtin inside node_modules should not appear separately
+        fs::create_dir(nm.join("target")).unwrap();
+
+        let results = traverse(&[dir.path().to_string_lossy().into_owned()], &[]);
+
+        assert_eq!(results.len(), 1);
+        assert!(results[0].ends_with("node_modules"));
     }
 
     #[test]
