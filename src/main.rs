@@ -8,6 +8,7 @@ mod cli;
 mod commands;
 mod config;
 mod daemon;
+mod disksize;
 mod registry;
 mod scanner;
 mod tmutil;
