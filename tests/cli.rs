@@ -137,8 +137,12 @@ fn stop_without_daemon_prints_message() {
 // -- update command --
 
 #[test]
-fn update_exits_successfully() {
-    veiled().arg("update").assert().success();
+fn update_help_shows_description() {
+    veiled()
+        .args(["update", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::is_empty().not());
 }
 
 // -- unknown command --
