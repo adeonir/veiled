@@ -1,5 +1,7 @@
 use clap::Parser;
 
+#[allow(dead_code)]
+mod builtins;
 mod cli;
 mod commands;
 
