@@ -19,7 +19,11 @@ pub enum Commands {
     /// List all paths excluded by veiled
     List,
     /// Remove all exclusions managed by veiled
-    Reset,
+    Reset {
+        /// Skip confirmation prompt
+        #[arg(long)]
+        yes: bool,
+    },
     /// Add a directory to the custom exclusion list
     Add {
         /// Path to exclude

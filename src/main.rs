@@ -1,4 +1,7 @@
+use std::process;
+
 use clap::Parser;
+use console::style;
 
 #[allow(dead_code)]
 mod builtins;
@@ -16,14 +19,19 @@ mod tmutil;
 fn main() {
     let cli = cli::Cli::parse();
 
-    match cli.command {
+    let result = match cli.command {
         cli::Commands::Start => commands::start::execute(),
         cli::Commands::Stop => commands::stop::execute(),
         cli::Commands::Run => commands::run::execute(),
         cli::Commands::List => commands::list::execute(),
-        cli::Commands::Reset => commands::reset::execute(),
+        cli::Commands::Reset { yes } => commands::reset::execute(yes),
         cli::Commands::Add { ref path } => commands::add::execute(path),
         cli::Commands::Status => commands::status::execute(),
         cli::Commands::Update => commands::update::execute(),
+    };
+
+    if let Err(e) = result {
+        eprintln!("{} {e}", style("error:").red().bold());
+        process::exit(1);
     }
 }
