@@ -6,6 +6,8 @@ mod cli;
 mod commands;
 #[allow(dead_code)]
 mod config;
+#[allow(dead_code)]
+mod registry;
 
 fn main() {
     let cli = cli::Cli::parse();
