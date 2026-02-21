@@ -1,8 +1,14 @@
 use console::style;
 
-use crate::registry;
+use crate::{daemon, registry};
 
 pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
+    if daemon::is_installed() {
+        println!("{} {}", style("Daemon:").bold(), style("active").green());
+    } else {
+        println!("{} {}", style("Daemon:").bold(), style("inactive").dim());
+    }
+
     let reg = registry::Registry::load()?;
     let count = reg.list().len();
 
