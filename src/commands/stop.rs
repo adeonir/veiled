@@ -10,7 +10,7 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
 
     daemon::uninstall()?;
 
-    println!("{}", style("Daemon deactivated.").green().bold());
+    println!("{}", style("Daemon deactivated.").yellow().bold());
 
     Ok(())
 }

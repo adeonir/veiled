@@ -6,7 +6,7 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     if daemon::is_installed() {
         println!("{} {}", style("Daemon:").bold(), style("active").green());
     } else {
-        println!("{} {}", style("Daemon:").bold(), style("inactive").dim());
+        println!("{} {}", style("Daemon:").bold(), style("inactive").yellow());
     }
 
     let reg = registry::Registry::load()?;
