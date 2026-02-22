@@ -1,7 +1,14 @@
 use std::process;
+use std::sync::OnceLock;
 
 use clap::Parser;
 use console::style;
+
+static VERBOSE: OnceLock<bool> = OnceLock::new();
+
+pub fn verbose() -> bool {
+    VERBOSE.get().copied().unwrap_or(false)
+}
 
 mod builtins;
 mod cli;
@@ -16,6 +23,8 @@ mod updater;
 
 fn main() {
     let cli = cli::Cli::parse();
+
+    let _ = VERBOSE.set(cli.verbose);
 
     let result = match cli.command {
         cli::Commands::Start => commands::start::execute(),
