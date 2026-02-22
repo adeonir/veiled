@@ -74,6 +74,12 @@ impl Registry {
         }
     }
 
+    pub fn remove(&mut self, path: &str) -> bool {
+        let len = self.paths.len();
+        self.paths.retain(|p| p != path);
+        self.paths.len() < len
+    }
+
     pub fn contains(&self, path: &str) -> bool {
         self.paths.iter().any(|p| p == path)
     }
@@ -126,6 +132,35 @@ mod tests {
 
         assert!(registry.contains("/Users/dev/project/.venv"));
         assert!(!registry.contains("/Users/dev/other/.venv"));
+    }
+
+    #[test]
+    fn remove_existing_path() {
+        let mut registry = Registry::default();
+        registry.add("/Users/dev/project/node_modules");
+
+        assert!(registry.remove("/Users/dev/project/node_modules"));
+        assert!(!registry.contains("/Users/dev/project/node_modules"));
+        assert!(registry.list().is_empty());
+    }
+
+    #[test]
+    fn remove_missing_path_returns_false() {
+        let mut registry = Registry::default();
+
+        assert!(!registry.remove("/Users/dev/project/node_modules"));
+    }
+
+    #[test]
+    fn remove_preserves_other_paths() {
+        let mut registry = Registry::default();
+        registry.add("/Users/dev/project/node_modules");
+        registry.add("/Users/dev/project/target");
+
+        registry.remove("/Users/dev/project/node_modules");
+
+        assert_eq!(registry.list().len(), 1);
+        assert!(registry.contains("/Users/dev/project/target"));
     }
 
     #[test]

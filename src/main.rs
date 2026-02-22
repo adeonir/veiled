@@ -30,6 +30,7 @@ fn main() {
         cli.command,
         cli::Commands::Run
             | cli::Commands::Add { .. }
+            | cli::Commands::Remove { .. }
             | cli::Commands::Reset { .. }
             | cli::Commands::Status { .. }
     ) && let Err(detail) = tmutil::check_access()
@@ -50,6 +51,7 @@ fn main() {
         cli::Commands::List => commands::list::execute(),
         cli::Commands::Reset { yes } => commands::reset::execute(yes),
         cli::Commands::Add { ref path } => commands::add::execute(path),
+        cli::Commands::Remove { ref path } => commands::remove::execute(path),
         cli::Commands::Status { refresh } => commands::status::execute(refresh),
         cli::Commands::Update => commands::update::execute(),
     };

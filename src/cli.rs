@@ -31,6 +31,11 @@ pub enum Commands {
         /// Path to exclude
         path: String,
     },
+    /// Remove a directory from the exclusion list
+    Remove {
+        /// Path to restore
+        path: String,
+    },
     /// Show daemon state and exclusion stats
     Status {
         /// Recalculate saved space
