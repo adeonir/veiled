@@ -26,6 +26,23 @@ fn main() {
 
     let _ = VERBOSE.set(cli.verbose);
 
+    if matches!(
+        cli.command,
+        cli::Commands::Run
+            | cli::Commands::Add { .. }
+            | cli::Commands::Reset { .. }
+            | cli::Commands::Status { .. }
+    ) && let Err(detail) = tmutil::check_access()
+    {
+        eprintln!(
+            "{} Full Disk Access may be required. Grant access to your terminal in System Settings > Privacy & Security > Full Disk Access.",
+            style("warning:").yellow().bold()
+        );
+        if verbose() {
+            eprintln!("{} {detail}", style("detail:").yellow());
+        }
+    }
+
     let result = match cli.command {
         cli::Commands::Start => commands::start::execute(),
         cli::Commands::Stop => commands::stop::execute(),

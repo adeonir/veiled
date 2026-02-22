@@ -1,6 +1,21 @@
 use std::path::Path;
 use std::process::Command;
 
+pub fn check_access() -> Result<(), String> {
+    let output = Command::new("tmutil")
+        .arg("isexcluded")
+        .arg("/")
+        .output()
+        .map_err(|e| format!("failed to run tmutil: {e}"))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(stderr.trim().to_string())
+    }
+}
+
 pub fn add_exclusion(path: &Path) -> Result<(), String> {
     let output = Command::new("tmutil")
         .arg("addexclusion")
