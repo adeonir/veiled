@@ -21,6 +21,7 @@ fn help_displays_all_commands() {
         .stdout(predicate::str::contains("list"))
         .stdout(predicate::str::contains("reset"))
         .stdout(predicate::str::contains("add"))
+        .stdout(predicate::str::contains("remove"))
         .stdout(predicate::str::contains("status"))
         .stdout(predicate::str::contains("update"));
 }
@@ -74,6 +75,31 @@ fn add_requires_path_argument() {
 fn add_help_shows_path_argument() {
     veiled()
         .args(["add", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("<PATH>").or(predicate::str::contains("path")));
+}
+
+// -- remove command --
+
+#[test]
+fn remove_nonexistent_path_exits_with_error() {
+    veiled()
+        .args(["remove", "/nonexistent/path/that/does/not/exist"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("error:"));
+}
+
+#[test]
+fn remove_requires_path_argument() {
+    veiled().arg("remove").assert().failure();
+}
+
+#[test]
+fn remove_help_shows_path_argument() {
+    veiled()
+        .args(["remove", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("<PATH>").or(predicate::str::contains("path")));
