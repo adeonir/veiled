@@ -33,14 +33,18 @@ jobs:
       - name: Compute checksums
         id: hashes
         run: |
-          echo "arm64=$(shasum -a 256 veiled-macos-arm64 | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-          echo "x64=$(shasum -a 256 veiled-macos-x64 | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          shasum -a 256 veiled-macos-arm64 > veiled-macos-arm64.sha256
+          shasum -a 256 veiled-macos-x64 > veiled-macos-x64.sha256
+          echo "arm64=$(awk '{print $1}' veiled-macos-arm64.sha256)" >> "$GITHUB_OUTPUT"
+          echo "x64=$(awk '{print $1}' veiled-macos-x64.sha256)" >> "$GITHUB_OUTPUT"
 
       - name: Create release
         run: |
           gh release create "${{ github.ref_name }}" \
             veiled-macos-arm64 \
+            veiled-macos-arm64.sha256 \
             veiled-macos-x64 \
+            veiled-macos-x64.sha256 \
             --title "${{ github.ref_name }}" \
             --generate-notes
         env:
