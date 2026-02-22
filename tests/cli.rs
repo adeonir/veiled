@@ -179,6 +179,58 @@ fn update_displays_current_version() {
         .stdout(predicate::str::contains(env!("CARGO_PKG_VERSION")));
 }
 
+// -- verbose flag --
+
+#[test]
+fn verbose_flag_accepted_before_subcommand() {
+    veiled().args(["--verbose", "list"]).assert().success();
+}
+
+#[test]
+fn verbose_flag_accepted_with_status() {
+    veiled().args(["--verbose", "status"]).assert().success();
+}
+
+#[test]
+fn verbose_flag_shown_in_help() {
+    veiled()
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--verbose"));
+}
+
+// -- FDA warning --
+
+#[test]
+fn status_fda_warning_on_stderr_if_present() {
+    let output = veiled().args(["status"]).output().unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // FDA check may or may not fail depending on environment;
+    // if there is stderr output, it must contain the expected warning text
+    if !stderr.is_empty() {
+        assert!(
+            stderr.contains("Full Disk Access may be required"),
+            "unexpected stderr: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn verbose_status_shows_fda_detail_if_warning() {
+    let output = veiled().args(["--verbose", "status"]).output().unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // When verbose + FDA warning, both "warning:" and "detail:" lines should appear
+    if stderr.contains("Full Disk Access may be required") {
+        assert!(
+            stderr.contains("detail:"),
+            "verbose mode should include detail line: {stderr}"
+        );
+    }
+}
+
 // -- unknown command --
 
 #[test]
