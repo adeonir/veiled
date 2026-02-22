@@ -1,7 +1,8 @@
 use std::fs;
-use std::io::BufReader;
+use std::io::{BufReader, Seek};
 use std::path::{Path, PathBuf};
 
+use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -9,6 +10,8 @@ pub struct Registry {
     pub paths: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub saved_bytes: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_update_check: Option<i64>,
 }
 
 fn registry_path() -> PathBuf {
@@ -17,42 +20,58 @@ fn registry_path() -> PathBuf {
         .join(".config/veiled/registry.json")
 }
 
-impl Registry {
-    pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
-        Self::load_from(&registry_path())
-    }
+pub struct LockedRegistry {
+    file: fs::File,
+}
 
-    pub fn load_from(path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
-        if path.exists() {
-            let file = fs::File::open(path)?;
-            let registry = serde_json::from_reader(BufReader::new(file))?;
-            Ok(registry)
-        } else {
-            Ok(Self::default())
-        }
-    }
-
-    pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
-        self.save_to(&registry_path())
-    }
-
-    pub fn save_to(&self, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+impl LockedRegistry {
+    fn acquire(path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        fs::write(path, serde_json::to_string_pretty(self)?)?;
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(path)?;
+        file.lock_exclusive()?;
+        Ok(Self { file })
+    }
+
+    pub fn load(&mut self) -> Result<Registry, Box<dyn std::error::Error>> {
+        self.file.rewind()?;
+        let metadata = self.file.metadata()?;
+        if metadata.len() == 0 {
+            return Ok(Registry::default());
+        }
+        let reader = BufReader::new(&self.file);
+        let registry = serde_json::from_reader(reader)?;
+        Ok(registry)
+    }
+
+    pub fn save(&mut self, registry: &Registry) -> Result<(), Box<dyn std::error::Error>> {
+        self.file.set_len(0)?;
+        self.file.rewind()?;
+        serde_json::to_writer_pretty(&self.file, registry)?;
         Ok(())
+    }
+}
+
+impl Registry {
+    pub fn locked() -> Result<LockedRegistry, Box<dyn std::error::Error>> {
+        LockedRegistry::acquire(&registry_path())
+    }
+
+    #[cfg(test)]
+    pub fn locked_at(path: &Path) -> Result<LockedRegistry, Box<dyn std::error::Error>> {
+        LockedRegistry::acquire(path)
     }
 
     pub fn add(&mut self, path: &str) {
         if !self.contains(path) {
             self.paths.push(path.to_string());
         }
-    }
-
-    #[allow(dead_code)]
-    pub fn remove(&mut self, path: &str) {
-        self.paths.retain(|p| p != path);
     }
 
     pub fn contains(&self, path: &str) -> bool {
@@ -74,7 +93,8 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("registry.json");
 
-        let registry = Registry::load_from(&path).unwrap();
+        let mut guard = Registry::locked_at(&path).unwrap();
+        let registry = guard.load().unwrap();
 
         assert!(registry.paths.is_empty());
     }
@@ -100,19 +120,6 @@ mod tests {
     }
 
     #[test]
-    fn remove_path() {
-        let mut registry = Registry::default();
-        registry.add("/Users/dev/a/node_modules");
-        registry.add("/Users/dev/b/target");
-
-        registry.remove("/Users/dev/a/node_modules");
-
-        assert_eq!(registry.list().len(), 1);
-        assert!(!registry.contains("/Users/dev/a/node_modules"));
-        assert!(registry.contains("/Users/dev/b/target"));
-    }
-
-    #[test]
     fn contains_check() {
         let mut registry = Registry::default();
         registry.add("/Users/dev/project/.venv");
@@ -126,12 +133,15 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("registry.json");
 
+        let mut guard = Registry::locked_at(&path).unwrap();
         let mut registry = Registry::default();
         registry.add("/Users/dev/app/node_modules");
         registry.add("/Users/dev/api/target");
-        registry.save_to(&path).unwrap();
+        guard.save(&registry).unwrap();
+        drop(guard);
 
-        let loaded = Registry::load_from(&path).unwrap();
+        let mut guard = Registry::locked_at(&path).unwrap();
+        let loaded = guard.load().unwrap();
 
         assert_eq!(loaded.list().len(), 2);
         assert!(loaded.contains("/Users/dev/app/node_modules"));
@@ -149,12 +159,15 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("registry.json");
 
+        let mut guard = Registry::locked_at(&path).unwrap();
         let mut registry = Registry::default();
         registry.add("/Users/dev/project/node_modules");
         registry.saved_bytes = Some(1_073_741_824);
-        registry.save_to(&path).unwrap();
+        guard.save(&registry).unwrap();
+        drop(guard);
 
-        let loaded = Registry::load_from(&path).unwrap();
+        let mut guard = Registry::locked_at(&path).unwrap();
+        let loaded = guard.load().unwrap();
 
         assert_eq!(loaded.saved_bytes, Some(1_073_741_824));
     }
@@ -166,9 +179,71 @@ mod tests {
 
         fs::write(&path, r#"{"paths": ["/Users/dev/node_modules"]}"#).unwrap();
 
-        let loaded = Registry::load_from(&path).unwrap();
+        let mut guard = Registry::locked_at(&path).unwrap();
+        let loaded = guard.load().unwrap();
 
         assert_eq!(loaded.list().len(), 1);
         assert!(loaded.saved_bytes.is_none());
+    }
+
+    #[test]
+    fn locked_load_save_roundtrip() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("registry.json");
+
+        let mut guard = Registry::locked_at(&path).unwrap();
+        let mut reg = guard.load().unwrap();
+        assert!(reg.paths.is_empty());
+
+        reg.add("/Users/dev/project/node_modules");
+        reg.saved_bytes = Some(500_000_000);
+        reg.last_update_check = Some(1_700_000_000);
+        guard.save(&reg).unwrap();
+        drop(guard);
+
+        let mut guard = Registry::locked_at(&path).unwrap();
+        let loaded = guard.load().unwrap();
+
+        assert_eq!(loaded.list().len(), 1);
+        assert!(loaded.contains("/Users/dev/project/node_modules"));
+        assert_eq!(loaded.saved_bytes, Some(500_000_000));
+        assert_eq!(loaded.last_update_check, Some(1_700_000_000));
+    }
+
+    #[test]
+    fn locked_creates_file_if_missing() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("subdir/registry.json");
+
+        let mut guard = Registry::locked_at(&path).unwrap();
+        let reg = guard.load().unwrap();
+
+        assert!(reg.paths.is_empty());
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn last_update_check_defaults_to_none() {
+        let registry = Registry::default();
+        assert!(registry.last_update_check.is_none());
+    }
+
+    #[test]
+    fn missing_last_update_check_loads_as_none() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("registry.json");
+
+        fs::write(
+            &path,
+            r#"{"paths": ["/Users/dev/node_modules"], "saved_bytes": 1024}"#,
+        )
+        .unwrap();
+
+        let mut guard = Registry::locked_at(&path).unwrap();
+        let loaded = guard.load().unwrap();
+
+        assert_eq!(loaded.list().len(), 1);
+        assert_eq!(loaded.saved_bytes, Some(1024));
+        assert!(loaded.last_update_check.is_none());
     }
 }

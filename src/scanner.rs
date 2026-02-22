@@ -71,29 +71,6 @@ pub fn scan_git_repo(repo_path: &Path) -> Vec<PathBuf> {
     parse_git_ignored(repo_path, &stdout)
 }
 
-#[allow(dead_code)]
-pub fn scan_non_git_dir(path: &Path) -> Vec<PathBuf> {
-    let Ok(entries) = fs::read_dir(path) else {
-        return vec![];
-    };
-
-    let mut results = Vec::new();
-
-    for entry in entries.flatten() {
-        let entry_path = entry.path();
-        if !entry_path.is_dir() {
-            continue;
-        }
-        if let Some(name) = entry_path.file_name()
-            && builtins::is_builtin(&name.to_string_lossy())
-        {
-            results.push(entry_path);
-        }
-    }
-
-    results
-}
-
 pub fn traverse(search_paths: &[String], ignore_paths: &[String]) -> Vec<PathBuf> {
     let ignore_set: HashSet<PathBuf> = ignore_paths.iter().map(PathBuf::from).collect();
     let mut results = Vec::new();
@@ -387,53 +364,5 @@ mod tests {
         };
 
         assert_eq!(results, sorted);
-    }
-
-    #[test]
-    fn scan_non_git_dir_finds_builtin_dirs() {
-        let dir = TempDir::new().unwrap();
-        fs::create_dir(dir.path().join("node_modules")).unwrap();
-        fs::create_dir(dir.path().join("src")).unwrap();
-
-        let results = scan_non_git_dir(dir.path());
-
-        assert_eq!(results.len(), 1);
-        assert!(results[0].ends_with("node_modules"));
-    }
-
-    #[test]
-    fn scan_non_git_dir_skips_non_builtin() {
-        let dir = TempDir::new().unwrap();
-        fs::create_dir(dir.path().join("src")).unwrap();
-        fs::create_dir(dir.path().join("docs")).unwrap();
-
-        let results = scan_non_git_dir(dir.path());
-
-        assert!(results.is_empty());
-    }
-
-    #[test]
-    fn scan_non_git_dir_handles_empty_dir() {
-        let dir = TempDir::new().unwrap();
-        let results = scan_non_git_dir(dir.path());
-
-        assert!(results.is_empty());
-    }
-
-    #[test]
-    fn scan_non_git_dir_skips_files() {
-        let dir = TempDir::new().unwrap();
-        fs::write(dir.path().join("node_modules"), "not a dir").unwrap();
-
-        let results = scan_non_git_dir(dir.path());
-
-        assert!(results.is_empty());
-    }
-
-    #[test]
-    fn scan_non_git_dir_handles_nonexistent_path() {
-        let results = scan_non_git_dir(Path::new("/nonexistent/path"));
-
-        assert!(results.is_empty());
     }
 }

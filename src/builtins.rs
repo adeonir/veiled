@@ -39,11 +39,6 @@ pub fn is_builtin(name: &str) -> bool {
     BUILTIN_DIRS.contains(&name)
 }
 
-#[allow(dead_code)]
-pub fn list() -> &'static [&'static str] {
-    BUILTIN_DIRS
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -67,12 +62,5 @@ mod tests {
     fn match_is_case_sensitive() {
         assert!(!is_builtin("Node_Modules"));
         assert!(!is_builtin("TARGET"));
-    }
-
-    #[test]
-    fn list_returns_all_entries() {
-        let entries = list();
-        assert!(entries.len() > 20);
-        assert!(entries.contains(&"node_modules"));
     }
 }

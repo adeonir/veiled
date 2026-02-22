@@ -23,9 +23,10 @@ pub fn execute(path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     tmutil::add_exclusion(&canonical)?;
 
-    let mut reg = registry::Registry::load()?;
+    let mut guard = registry::Registry::locked()?;
+    let mut reg = guard.load()?;
     reg.add(&canonical_str);
-    reg.save()?;
+    guard.save(&reg)?;
 
     println!("{} {}", style("Added").green().bold(), canonical.display());
 

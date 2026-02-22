@@ -3,7 +3,8 @@ use console::style;
 use crate::registry;
 
 pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
-    let reg = registry::Registry::load()?;
+    let mut guard = registry::Registry::locked()?;
+    let reg = guard.load()?;
     let paths = reg.list();
 
     if paths.is_empty() {

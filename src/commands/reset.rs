@@ -5,7 +5,8 @@ use console::style;
 use crate::{registry, tmutil};
 
 pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let reg = registry::Registry::load()?;
+    let mut guard = registry::Registry::locked()?;
+    let reg = guard.load()?;
     let paths = reg.list().to_vec();
 
     if paths.is_empty() {
@@ -44,7 +45,7 @@ pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let reg = registry::Registry::default();
-    reg.save()?;
+    guard.save(&reg)?;
 
     println!(
         "{} {} {}",

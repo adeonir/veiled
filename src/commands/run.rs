@@ -12,7 +12,8 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
         let _ = updater::check();
     }
 
-    let mut reg = registry::Registry::load()?;
+    let mut guard = registry::Registry::locked()?;
+    let mut reg = guard.load()?;
 
     let spinner = ProgressBar::new_spinner();
     spinner.set_message("Scanning...");
@@ -48,7 +49,7 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     reg.saved_bytes = Some(disksize::calculate_total_size(reg.list()));
-    reg.save()?;
+    guard.save(&reg)?;
 
     println!(
         "{} {} new {} ({} total)",

@@ -9,7 +9,8 @@ pub fn execute(refresh: bool) -> Result<(), Box<dyn std::error::Error>> {
         println!("{} {}", style("Daemon:").bold(), style("inactive").yellow());
     }
 
-    let mut reg = registry::Registry::load()?;
+    let mut guard = registry::Registry::locked()?;
+    let mut reg = guard.load()?;
     let count = reg.list().len();
 
     if count == 0 {
@@ -20,7 +21,7 @@ pub fn execute(refresh: bool) -> Result<(), Box<dyn std::error::Error>> {
     if refresh {
         let total = disksize::calculate_total_size(reg.list());
         reg.saved_bytes = Some(total);
-        reg.save()?;
+        guard.save(&reg)?;
     }
 
     let saved = reg
