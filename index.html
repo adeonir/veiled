@@ -1,0 +1,395 @@
+<!-- veiled landing page — tailwind v4 -->
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>veiled — Clean Time Machine Backups</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style type="text/tailwindcss">
+    @theme {
+        --color-bg: #0e0e16;
+        --color-bg-paper: #141420;
+        --color-bg-elevated: #1a1a28;
+        --color-border: #242436;
+        --color-border-hover: #32324a;
+        --color-text-primary: #e8e8f0;
+        --color-text-secondary: #8e8ea0;
+        --color-accent: #8b5cf6;
+        --color-accent-light: #a78bfa;
+        --color-accent-dark: #6d28d9;
+        --font-heading: "Space Grotesk", sans-serif;
+        --font-body: "IBM Plex Sans", sans-serif;
+        --font-mono: "JetBrains Mono", monospace;
+      }
+
+      .fade-in {
+        opacity: 0;
+        transform: translateY(24px);
+        transition:
+          opacity 800ms cubic-bezier(0.25, 0.1, 0.25, 1),
+          transform 800ms cubic-bezier(0.25, 0.1, 0.25, 1);
+      }
+
+      .fade-in.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .fade-in {
+          opacity: 1;
+          transform: none;
+          transition: none;
+        }
+      }
+    </style>
+</head>
+
+<body class="bg-bg text-text-primary font-body text-lg leading-relaxed antialiased">
+  <nav class="fixed top-0 inset-x-0 z-50 bg-bg/80 backdrop-blur-md border-b border-border">
+    <div class="max-w-7xl mx-auto px-8 flex items-center justify-between h-16">
+      <a href="#" class="font-mono text-base font-medium text-text-primary">veiled</a>
+      <div class="flex items-center gap-10">
+        <a href="#features"
+          class="hidden md:block text-sm text-text-secondary transition-colors duration-300 hover:text-text-primary">Features</a>
+        <a href="#how-it-works"
+          class="hidden md:block text-sm text-text-secondary transition-colors duration-300 hover:text-text-primary">How
+          It Works</a>
+        <a href="#commands"
+          class="hidden md:block text-sm text-text-secondary transition-colors duration-300 hover:text-text-primary">Commands</a>
+        <a href="#install"
+          class="text-xs font-medium py-2 px-5 border border-border rounded-full text-text-primary transition-all duration-300 hover:border-accent hover:bg-accent/8">Install</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <section class="pt-28 md:pt-40 pb-16 md:pb-24 text-center relative overflow-hidden">
+      <div
+        class="absolute -top-1/5 left-1/2 -translate-x-1/2 size-200 bg-radial from-accent/15 to-transparent to-70% pointer-events-none">
+      </div>
+      <div class="max-w-7xl mx-auto px-8">
+        <div
+          class="inline-flex items-center gap-2 py-1.5 px-4 bg-accent/8 border border-accent/20 rounded-full text-xs text-accent-light mb-8 fade-in">
+          <span class="size-1.5 rounded-full bg-accent animate-pulse"></span>
+          Built with Rust. Open source.
+        </div>
+        <h1
+          class="font-heading text-5xl md:text-7xl font-bold leading-none max-w-3xl mx-auto mb-12 fade-in">
+          Clean Time Machine Backups,
+          <span
+            class="text-accent-light">Effortlessly</span>
+        </h1>
+        <p class="text-lg text-text-secondary max-w-xl mx-auto mb-16 leading-relaxed fade-in">
+          Veiled automatically excludes development artifacts from Time
+          Machine. It scans your projects, identifies build directories and
+          dependencies, and keeps exclusions updated with a daily daemon.
+        </p>
+        <div
+          class="max-w-2xl mx-auto mb-16 bg-bg-paper border border-border rounded-xl overflow-hidden text-left fade-in">
+          <div class="flex items-center gap-1.5 px-4 py-3 border-b border-border">
+            <span class="size-2.5 rounded-full bg-border"></span>
+            <span class="size-2.5 rounded-full bg-border"></span>
+            <span class="size-2.5 rounded-full bg-border"></span>
+          </div>
+          <div class="px-6 py-5 font-mono text-sm leading-loose text-text-secondary">
+            <div class="text-text-primary">
+              <span class="text-accent">$ </span>brew install
+              adeonir/tap/veiled
+            </div>
+            <div class="text-text-primary">
+              <span class="text-accent">$ </span>veiled start
+            </div>
+            <div>Daemon activated. Running initial scan...</div>
+            <div>Scanned 47 projects in ~/Developer</div>
+            <div>
+              Excluded 312 directories (<span class="text-accent-light">18.4 GB saved</span>)
+            </div>
+          </div>
+        </div>
+        <div class="flex flex-col items-center md:flex-row md:justify-center gap-8 fade-in">
+          <div
+            class="w-full max-w-xs md:w-auto md:max-w-none py-6 px-10 bg-bg-paper border border-border rounded-xl text-center transition-all duration-300 hover:border-border-hover">
+            <span class="font-heading text-3xl font-bold block">~600 KB</span>
+            <span class="text-sm text-text-secondary">Binary size</span>
+          </div>
+          <div
+            class="w-full max-w-xs md:w-auto md:max-w-none py-6 px-10 bg-bg-paper border border-border rounded-xl text-center transition-all duration-300 hover:border-border-hover">
+            <span class="font-heading text-3xl font-bold block">7+</span>
+            <span class="text-sm text-text-secondary">Stacks supported</span>
+          </div>
+          <div
+            class="w-full max-w-xs md:w-auto md:max-w-none py-6 px-10 bg-bg-paper border border-border rounded-xl text-center transition-all duration-300 hover:border-border-hover">
+            <span class="font-heading text-3xl font-bold block">0</span>
+            <span class="text-sm text-text-secondary">Dependencies</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="py-16 md:py-24" id="features">
+      <div class="max-w-7xl mx-auto px-8">
+        <div class="text-center mb-16 fade-in">
+          <h2 class="font-heading text-4xl md:text-5xl font-bold mb-3">
+            Everything You Need, Nothing You Don't
+          </h2>
+          <p class="text-text-secondary text-lg mt-8">
+            One binary. Zero configuration. Every stack.
+          </p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div
+            class="p-8 bg-bg-paper border border-border rounded-2xl transition-all duration-300 hover:border-border-hover fade-in">
+            <i data-lucide="scan-search" class="size-8 text-accent-light mb-5"></i>
+            <h3 class="font-heading text-xl font-semibold mb-2.5">
+              Smart Detection
+            </h3>
+            <p class="text-text-secondary text-base leading-relaxed">
+              Three layers: .gitignore rules per repository, built-in list
+              covering 7+ ecosystems, and your own custom exclusions.
+            </p>
+          </div>
+          <div
+            class="p-8 bg-bg-paper border border-border rounded-2xl transition-all duration-300 hover:border-border-hover fade-in">
+            <i data-lucide="clock" class="size-8 text-accent-light mb-5"></i>
+            <h3 class="font-heading text-xl font-semibold mb-2.5">
+              Set and Forget
+            </h3>
+            <p class="text-text-secondary text-base leading-relaxed">
+              A native launchd daemon runs daily at 3 AM. New projects are
+              covered automatically without manual intervention.
+            </p>
+          </div>
+          <div
+            class="p-8 bg-bg-paper border border-border rounded-2xl transition-all duration-300 hover:border-border-hover fade-in">
+            <i data-lucide="layers" class="size-8 text-accent-light mb-5"></i>
+            <h3 class="font-heading text-xl font-semibold mb-2.5">
+              Multi-Stack
+            </h3>
+            <p class="text-text-secondary text-base leading-relaxed">
+              JavaScript, Python, Rust, Go, Swift, Java, PHP. Every major
+              ecosystem's build artifacts and dependencies are covered.
+            </p>
+          </div>
+          <div
+            class="p-8 bg-bg-paper border border-border rounded-2xl transition-all duration-300 hover:border-border-hover fade-in">
+            <i data-lucide="refresh-cw" class="size-8 text-accent-light mb-5"></i>
+            <h3 class="font-heading text-xl font-semibold mb-2.5">
+              Auto-Update
+            </h3>
+            <p class="text-text-secondary text-base leading-relaxed">
+              Checks GitHub Releases on each run. Downloads, verifies SHA-256
+              checksum, and replaces the binary atomically.
+            </p>
+          </div>
+          <div
+            class="p-8 bg-bg-paper border border-border rounded-2xl transition-all duration-300 hover:border-border-hover fade-in">
+            <i data-lucide="shield-check" class="size-8 text-accent-light mb-5"></i>
+            <h3 class="font-heading text-xl font-semibold mb-2.5">
+              Backup-Safe
+            </h3>
+            <p class="text-text-secondary text-base leading-relaxed">
+              Only affects future backups. Existing Time Machine snapshots are
+              never touched. Veiled manages its own exclusions separately from
+              yours.
+            </p>
+          </div>
+          <div
+            class="p-8 bg-bg-paper border border-border rounded-2xl transition-all duration-300 hover:border-border-hover fade-in">
+            <i data-lucide="undo-2" class="size-8 text-accent-light mb-5"></i>
+            <h3 class="font-heading text-xl font-semibold mb-2.5">
+              Fully Reversible
+            </h3>
+            <p class="text-text-secondary text-base leading-relaxed">
+              One command removes all managed exclusions and restores your
+              system to its original state. No leftovers.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="py-16 md:py-24 bg-bg-paper" id="how-it-works">
+      <div class="max-w-7xl mx-auto px-8">
+        <div class="text-center mb-16 fade-in">
+          <h2 class="font-heading text-4xl md:text-5xl font-bold mb-3">
+            How It Works
+          </h2>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div class="relative p-8 bg-bg border border-border rounded-2xl fade-in">
+            <div
+              class="font-heading text-lg font-semibold text-accent bg-accent/10 size-10 flex items-center justify-center rounded-lg mb-5">
+              01
+            </div>
+            <h3 class="font-heading text-xl font-semibold mb-2.5">Install</h3>
+            <p class="text-text-secondary text-base leading-relaxed mb-4">
+              One Homebrew command. A single ~600 KB native binary with zero
+              runtime dependencies.
+            </p>
+            <code
+              class="font-mono text-sm text-accent-light bg-accent/8 py-1 px-2.5 rounded-sm">brew install adeonir/tap/veiled</code>
+          </div>
+          <div class="relative p-8 bg-bg border border-border rounded-2xl fade-in">
+            <div
+              class="font-heading text-lg font-semibold text-accent bg-accent/10 size-10 flex items-center justify-center rounded-lg mb-5">
+              02
+            </div>
+            <h3 class="font-heading text-xl font-semibold mb-2.5">Start</h3>
+            <p class="text-text-secondary text-base leading-relaxed mb-4">
+              Activate the launchd daemon. Veiled runs an initial scan and
+              registers itself to run daily.
+            </p>
+            <code
+              class="font-mono text-sm text-accent-light bg-accent/8 py-1 px-2.5 rounded-sm">veiled start</code>
+          </div>
+          <div class="relative p-8 bg-bg border border-border rounded-2xl fade-in">
+            <div
+              class="font-heading text-lg font-semibold text-accent bg-accent/10 size-10 flex items-center justify-center rounded-lg mb-5">
+              03
+            </div>
+            <h3 class="font-heading text-xl font-semibold mb-2.5">Forget</h3>
+            <p class="text-text-secondary text-base leading-relaxed">
+              That's it. Veiled scans your projects every day, excludes new
+              artifacts, and updates itself in the background.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="py-16 md:py-24" id="commands">
+      <div class="max-w-7xl mx-auto px-8">
+        <div class="text-center mb-16 fade-in">
+          <h2 class="font-heading text-4xl md:text-5xl font-bold mb-3">
+            Full Control When You Need It
+          </h2>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 fade-in">
+          <div
+            class="flex justify-between items-center py-4 px-6 bg-bg-paper border border-border rounded-xl transition-all duration-300 hover:border-border-hover hover:translate-x-1">
+            <code class="font-mono text-sm text-accent-light">veiled start / stop</code><span
+              class="text-sm text-text-secondary">Control the daemon</span>
+          </div>
+          <div
+            class="flex justify-between items-center py-4 px-6 bg-bg-paper border border-border rounded-xl transition-all duration-300 hover:border-border-hover hover:translate-x-1">
+            <code class="font-mono text-sm text-accent-light">veiled run</code><span
+              class="text-sm text-text-secondary">Manual scan and exclude</span>
+          </div>
+          <div
+            class="flex justify-between items-center py-4 px-6 bg-bg-paper border border-border rounded-xl transition-all duration-300 hover:border-border-hover hover:translate-x-1">
+            <code class="font-mono text-sm text-accent-light">veiled status</code><span
+              class="text-sm text-text-secondary">Daemon state and stats</span>
+          </div>
+          <div
+            class="flex justify-between items-center py-4 px-6 bg-bg-paper border border-border rounded-xl transition-all duration-300 hover:border-border-hover hover:translate-x-1">
+            <code class="font-mono text-sm text-accent-light">veiled list</code><span
+              class="text-sm text-text-secondary">Show managed exclusions</span>
+          </div>
+          <div
+            class="flex justify-between items-center py-4 px-6 bg-bg-paper border border-border rounded-xl transition-all duration-300 hover:border-border-hover hover:translate-x-1">
+            <code class="font-mono text-sm text-accent-light">veiled add &lt;path&gt;</code><span
+              class="text-sm text-text-secondary">Custom exclusion</span>
+          </div>
+          <div
+            class="flex justify-between items-center py-4 px-6 bg-bg-paper border border-border rounded-xl transition-all duration-300 hover:border-border-hover hover:translate-x-1">
+            <code class="font-mono text-sm text-accent-light">veiled remove &lt;path&gt;</code><span
+              class="text-sm text-text-secondary">Restore a directory</span>
+          </div>
+          <div
+            class="flex justify-between items-center py-4 px-6 bg-bg-paper border border-border rounded-xl transition-all duration-300 hover:border-border-hover hover:translate-x-1">
+            <code class="font-mono text-sm text-accent-light">veiled reset</code><span
+              class="text-sm text-text-secondary">Remove all exclusions</span>
+          </div>
+          <div
+            class="flex justify-between items-center py-4 px-6 bg-bg-paper border border-border rounded-xl transition-all duration-300 hover:border-border-hover hover:translate-x-1">
+            <code class="font-mono text-sm text-accent-light">veiled update</code><span
+              class="text-sm text-text-secondary">Update to latest version</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="py-16 md:py-24 text-center relative overflow-hidden" id="install">
+      <div
+        class="absolute bottom-0 left-1/2 -translate-x-1/2 w-150 h-100 bg-radial from-accent/15 to-transparent to-70% pointer-events-none">
+      </div>
+      <div class="max-w-7xl mx-auto px-8">
+        <h2 class="font-heading text-4xl md:text-5xl font-bold mb-3 relative fade-in">
+          Ready to Clean Up Your Backups?
+        </h2>
+        <p class="text-text-secondary mb-10 relative fade-in mt-8">
+          Install veiled in under a minute. No configuration needed.
+        </p>
+        <div
+          class="inline-flex items-center gap-4 font-mono text-base bg-bg-paper border border-border py-4 pl-8 pr-5 rounded-xl text-text-primary mb-5 relative fade-in">
+          <span class="text-accent-light">brew install adeonir/tap/veiled && veiled start</span>
+          <button
+            class="copy-btn flex items-center justify-center size-9 bg-transparent border border-border rounded-lg text-text-secondary cursor-pointer transition-all duration-300 shrink-0 hover:border-accent hover:text-accent-light hover:bg-accent/8"
+            data-copy="brew install adeonir/tap/veiled && veiled start" aria-label="Copy to clipboard">
+            <i data-lucide="copy" class="size-4"></i>
+          </button>
+        </div>
+        <p class="text-xs text-text-secondary relative fade-in">
+          Requires macOS 12+ and Full Disk Access for Terminal.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="py-12 border-t border-border">
+    <div class="max-w-7xl mx-auto px-8 flex flex-col items-center gap-4 md:flex-row md:justify-between">
+      <span class="font-mono text-base font-medium text-text-primary">veiled</span>
+      <div class="flex items-center gap-8">
+        <a href="https://github.com/adeonir/veiled" target="_blank" rel="noopener noreferrer"
+          class="text-sm text-text-secondary transition-colors duration-300 hover:text-text-primary">GitHub</a>
+        <a href="https://github.com/adeonir/veiled/releases" target="_blank" rel="noopener noreferrer"
+          class="text-sm text-text-secondary transition-colors duration-300 hover:text-text-primary">Releases</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    lucide.createIcons();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry, i) => {
+          if (entry.isIntersecting) {
+            setTimeout(() => entry.target.classList.add("visible"), i * 80);
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.1 },
+    );
+    document
+      .querySelectorAll(".fade-in")
+      .forEach((el) => observer.observe(el));
+
+    document
+      .querySelector(".copy-btn")
+      .addEventListener("click", function () {
+        const text = this.dataset.copy;
+        navigator.clipboard.writeText(text).then(() => {
+          const icon = this.querySelector("svg");
+          const original = icon.outerHTML;
+          icon.outerHTML = '<i data-lucide="check" class="size-4"></i>';
+          lucide.createIcons({ nodes: [this] });
+          setTimeout(() => {
+            this.querySelector("svg").outerHTML = original;
+          }, 1500);
+        });
+      });
+  </script>
+</body>
+
+</html>

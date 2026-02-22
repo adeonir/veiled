@@ -3,7 +3,9 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore: ["*.html"]
   pull_request:
+    paths-ignore: ["*.html"]
 
 env:
   CARGO_TERM_COLOR: always
