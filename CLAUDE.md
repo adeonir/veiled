@@ -39,6 +39,7 @@ src/
     list.rs         # Print all managed exclusion paths
     status.rs       # Show daemon state and exclusion count
     add.rs          # Add custom directory to exclusions (validates path, updates config + registry + tmutil)
+    remove.rs       # Remove a directory from exclusions (unregisters from registry + config + tmutil)
     reset.rs        # Remove all exclusions (confirmation prompt, --yes to bypass)
     start.rs        # Install binary to ~/.local/bin and activate the launchd daemon
     stop.rs         # Deactivate daemon and remove the launch agent plist

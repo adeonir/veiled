@@ -28,6 +28,7 @@ veiled list               # List all paths currently excluded by veiled
 veiled status             # Show daemon state, exclusion count, and saved space
 veiled status --refresh   # Recalculate saved space from current exclusions
 veiled add <path>         # Add a custom directory to the exclusion list
+veiled remove <path>      # Remove a directory from the exclusion list
 veiled reset              # Remove all exclusions managed by veiled
 veiled reset --yes        # Skip confirmation prompt
 veiled start              # Install binary and activate the daily daemon
