@@ -1,6 +1,6 @@
 use console::style;
 
-use crate::{commands, daemon};
+use crate::{commands, daemon, registry};
 
 pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     if daemon::is_installed() {
@@ -16,5 +16,12 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{}", style("Daemon activated.").green().bold());
 
-    commands::run::execute()
+    let mut guard = registry::Registry::locked()?;
+    let reg = guard.load()?;
+
+    if reg.list().is_empty() {
+        commands::run::execute()
+    } else {
+        Ok(())
+    }
 }
