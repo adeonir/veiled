@@ -33,6 +33,7 @@ veiled reset --yes        # Skip confirmation prompt
 veiled start              # Install binary and activate the daily daemon
 veiled stop               # Deactivate daemon and remove the launch agent
 veiled update             # Check for updates and install the latest version
+veiled --verbose <cmd>    # Enable diagnostic output on stderr
 ```
 
 ## Configuration
