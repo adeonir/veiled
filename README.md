@@ -18,7 +18,7 @@ brew install adeonir/tap/veiled
 veiled start
 ```
 
-This installs the binary, activates the daily daemon, and runs an immediate scan to exclude all recognized development artifacts from Time Machine.
+This activates the daily daemon. On first run, it also performs an immediate scan to exclude all recognized development artifacts from Time Machine.
 
 ## Usage
 

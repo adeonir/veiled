@@ -41,9 +41,9 @@ src/
     add.rs          # Add custom directory to exclusions (validates path, updates config + registry + tmutil)
     remove.rs       # Remove a directory from exclusions (unregisters from registry + config + tmutil)
     reset.rs        # Remove all exclusions (confirmation prompt, --yes to bypass)
-    start.rs        # Install binary to ~/.local/bin and activate the launchd daemon
+    start.rs        # Activate the launchd daemon (runs initial scan only if registry is empty)
     stop.rs         # Deactivate daemon and remove the launch agent plist
-    update.rs       # Check for updates and install the latest version from GitHub Releases
+    update.rs       # Check for updates, install the latest version, and restart/activate the daemon
 tests/
   cli.rs           # Integration tests using assert_cmd + predicates (runs the compiled binary)
 ```
