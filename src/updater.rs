@@ -1,7 +1,9 @@
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
+use std::path::PathBuf;
 
 use serde::Deserialize;
+use sha2::{Digest, Sha256};
 
 const REPO: &str = "adeonir/veiled";
 
@@ -41,6 +43,23 @@ fn parse_version(tag: &str) -> Result<semver::Version, Box<dyn std::error::Error
     Ok(semver::Version::parse(version_str)?)
 }
 
+fn parse_checksum(content: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let hex = content
+        .split_whitespace()
+        .next()
+        .ok_or("empty checksum file")?;
+
+    if hex.len() != 64 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err(format!("invalid SHA-256 digest: {hex}").into());
+    }
+
+    Ok(hex.to_lowercase())
+}
+
+fn compute_sha256(data: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(data))
+}
+
 pub fn check() -> Result<UpdateResult, Box<dyn std::error::Error>> {
     let url = format!("https://api.github.com/repos/{REPO}/releases/latest");
 
@@ -67,13 +86,24 @@ pub fn check() -> Result<UpdateResult, Box<dyn std::error::Error>> {
     }
 
     let asset_name = platform_asset_name();
-    let asset = response
+    let checksum_name = format!("{asset_name}.sha256");
+
+    let binary_asset = response
         .assets
         .iter()
         .find(|a| a.name == asset_name)
         .ok_or_else(|| format!("no binary available for this platform ({asset_name})"))?;
 
-    download_and_replace(&asset.browser_download_url)?;
+    let checksum_asset = response
+        .assets
+        .iter()
+        .find(|a| a.name == checksum_name)
+        .ok_or_else(|| format!("no checksum available for this platform ({checksum_name})"))?;
+
+    download_and_replace(
+        &binary_asset.browser_download_url,
+        &checksum_asset.browser_download_url,
+    )?;
 
     Ok(UpdateResult {
         updated: true,
@@ -82,7 +112,18 @@ pub fn check() -> Result<UpdateResult, Box<dyn std::error::Error>> {
     })
 }
 
-fn download_and_replace(url: &str) -> Result<(), Box<dyn std::error::Error>> {
+struct TempFile(PathBuf);
+
+impl Drop for TempFile {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.0);
+    }
+}
+
+fn download_and_replace(
+    binary_url: &str,
+    checksum_url: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     let binary_path =
         std::env::current_exe().map_err(|e| format!("failed to resolve binary path: {e}"))?;
 
@@ -90,9 +131,19 @@ fn download_and_replace(url: &str) -> Result<(), Box<dyn std::error::Error>> {
         .parent()
         .ok_or("failed to resolve binary directory")?;
 
-    let temp_path = parent.join(".veiled-update");
+    let temp = TempFile(parent.join(".veiled-update"));
 
-    let bytes = ureq::get(url)
+    let checksum_content = ureq::get(checksum_url)
+        .header("User-Agent", "veiled")
+        .call()
+        .map_err(|e| format!("failed to download checksum: {e}"))?
+        .into_body()
+        .read_to_string()
+        .map_err(|e| format!("failed to read checksum: {e}"))?;
+
+    let expected = parse_checksum(&checksum_content)?;
+
+    let bytes = ureq::get(binary_url)
         .header("User-Agent", "veiled")
         .call()
         .map_err(|e| format!("failed to download update: {e}"))?
@@ -100,9 +151,18 @@ fn download_and_replace(url: &str) -> Result<(), Box<dyn std::error::Error>> {
         .read_to_vec()
         .map_err(|e| format!("failed to read download: {e}"))?;
 
-    fs::write(&temp_path, &bytes)?;
-    fs::set_permissions(&temp_path, fs::Permissions::from_mode(0o755))?;
-    fs::rename(&temp_path, &binary_path)?;
+    let actual = compute_sha256(&bytes);
+
+    if actual != expected {
+        return Err(format!("checksum mismatch: expected {expected}, got {actual}").into());
+    }
+
+    fs::write(&temp.0, &bytes)?;
+    fs::set_permissions(&temp.0, fs::Permissions::from_mode(0o755))?;
+    fs::rename(&temp.0, &binary_path)?;
+
+    // Rename succeeded, prevent Drop from removing the file
+    std::mem::forget(temp);
 
     Ok(())
 }
@@ -198,5 +258,82 @@ mod tests {
 
         let release: Release = serde_json::from_str(json).unwrap();
         assert!(release.assets.is_empty());
+    }
+
+    #[test]
+    fn compute_sha256_produces_valid_hex() {
+        let hash = compute_sha256(b"hello world");
+        assert_eq!(hash.len(), 64);
+        assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn compute_sha256_is_deterministic() {
+        let a = compute_sha256(b"test data");
+        let b = compute_sha256(b"test data");
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn compute_sha256_differs_for_different_input() {
+        let a = compute_sha256(b"hello");
+        let b = compute_sha256(b"world");
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn parse_checksum_extracts_hex_digest() {
+        let content = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9  veiled-macos-arm64\n";
+        let hex = parse_checksum(content).unwrap();
+        assert_eq!(
+            hex,
+            "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+        );
+    }
+
+    #[test]
+    fn parse_checksum_handles_bare_hex() {
+        let content = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9\n";
+        let hex = parse_checksum(content).unwrap();
+        assert_eq!(
+            hex,
+            "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+        );
+    }
+
+    #[test]
+    fn parse_checksum_normalizes_to_lowercase() {
+        let content = "B94D27B9934D3E08A52E52D7DA7DABFAC484EFE37A5380EE9088F7ACE2EFCDE9  file\n";
+        let hex = parse_checksum(content).unwrap();
+        assert!(hex.chars().all(|c| !c.is_ascii_uppercase()));
+    }
+
+    #[test]
+    fn parse_checksum_rejects_short_digest() {
+        assert!(parse_checksum("abc123  file").is_err());
+    }
+
+    #[test]
+    fn parse_checksum_rejects_empty() {
+        assert!(parse_checksum("").is_err());
+    }
+
+    #[test]
+    fn parse_checksum_rejects_non_hex() {
+        let content = "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz  file";
+        assert!(parse_checksum(content).is_err());
+    }
+
+    #[test]
+    fn temp_file_cleanup_on_drop() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("temp-binary");
+        fs::write(&path, b"data").unwrap();
+        assert!(path.exists());
+
+        let temp = TempFile(path.clone());
+        drop(temp);
+
+        assert!(!path.exists());
     }
 }
