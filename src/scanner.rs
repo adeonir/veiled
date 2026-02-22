@@ -3,15 +3,27 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use console::style;
+
 use crate::builtins;
 use crate::config::Config;
 use crate::tmutil;
+use crate::verbose;
 
 pub fn scan(config: &Config) -> Vec<PathBuf> {
-    collect_paths(config)
+    let results: Vec<PathBuf> = collect_paths(config)
         .into_iter()
         .filter(|p| !tmutil::is_excluded(p).unwrap_or(false))
-        .collect()
+        .collect();
+
+    if verbose() && results.is_empty() {
+        eprintln!(
+            "{} scan found no new paths to exclude",
+            style("verbose:").dim()
+        );
+    }
+
+    results
 }
 
 fn collect_paths(config: &Config) -> Vec<PathBuf> {
@@ -60,10 +72,26 @@ pub fn scan_git_repo(repo_path: &Path) -> Vec<PathBuf> {
         .output();
 
     let Ok(output) = output else {
+        if verbose() {
+            eprintln!(
+                "{} git command failed in {}",
+                style("verbose:").dim(),
+                repo_path.display()
+            );
+        }
         return vec![];
     };
 
     if !output.status.success() {
+        if verbose() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            eprintln!(
+                "{} git ls-files failed in {}: {}",
+                style("verbose:").dim(),
+                repo_path.display(),
+                stderr.trim()
+            );
+        }
         return vec![];
     }
 
@@ -77,7 +105,18 @@ pub fn traverse(search_paths: &[String], ignore_paths: &[String]) -> Vec<PathBuf
     let mut stack: Vec<PathBuf> = search_paths.iter().map(PathBuf::from).collect();
 
     while let Some(dir) = stack.pop() {
-        if !dir.is_dir() || ignore_set.contains(&dir) {
+        if !dir.is_dir() {
+            if verbose() {
+                eprintln!(
+                    "{} skipping non-existent path: {}",
+                    style("verbose:").dim(),
+                    dir.display()
+                );
+            }
+            continue;
+        }
+
+        if ignore_set.contains(&dir) {
             continue;
         }
 
@@ -87,6 +126,13 @@ pub fn traverse(search_paths: &[String], ignore_paths: &[String]) -> Vec<PathBuf
         }
 
         let Ok(entries) = fs::read_dir(&dir) else {
+            if verbose() {
+                eprintln!(
+                    "{} cannot read directory: {}",
+                    style("verbose:").dim(),
+                    dir.display()
+                );
+            }
             continue;
         };
 
