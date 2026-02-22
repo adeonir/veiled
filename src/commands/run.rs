@@ -1,15 +1,17 @@
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use console::style;
 use indicatif::ProgressBar;
 
-use crate::{config, disksize, registry, scanner, tmutil, updater};
+use crate::{config, disksize, registry, scanner, tmutil, updater, verbose};
+
+const UPDATE_COOLDOWN_SECS: i64 = 86_400; // 24 hours
 
 pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     let config = config::load()?;
 
     if config.auto_update {
-        let _ = updater::check();
+        auto_update()?;
     }
 
     let mut guard = registry::Registry::locked()?;
@@ -58,6 +60,40 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
         if excluded == 1 { "path" } else { "paths" },
         reg.list().len()
     );
+
+    Ok(())
+}
+
+fn now_epoch() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs().cast_signed())
+}
+
+fn auto_update() -> Result<(), Box<dyn std::error::Error>> {
+    let mut guard = registry::Registry::locked()?;
+    let mut reg = guard.load()?;
+
+    let now = now_epoch();
+
+    if let Some(last) = reg.last_update_check
+        && now - last < UPDATE_COOLDOWN_SECS
+    {
+        if verbose() {
+            eprintln!(
+                "{} skipping update check (last checked {}s ago)",
+                style("verbose:").dim(),
+                now - last
+            );
+        }
+        return Ok(());
+    }
+
+    reg.last_update_check = Some(now);
+    guard.save(&reg)?;
+    drop(guard);
+
+    let _ = updater::check();
 
     Ok(())
 }
