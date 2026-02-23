@@ -28,7 +28,8 @@ fn main() {
 
     if matches!(
         cli.command,
-        cli::Commands::Run
+        cli::Commands::Start
+            | cli::Commands::Run
             | cli::Commands::Add { .. }
             | cli::Commands::Remove { .. }
             | cli::Commands::Reset { .. }

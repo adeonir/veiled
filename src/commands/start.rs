@@ -1,6 +1,6 @@
 use console::style;
 
-use crate::{commands, daemon, registry};
+use crate::{daemon, registry};
 
 pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     if daemon::is_installed()? {
@@ -23,8 +23,8 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     if needs_scan {
-        commands::run::execute()
-    } else {
-        Ok(())
+        daemon::kickstart()?;
     }
+
+    Ok(())
 }

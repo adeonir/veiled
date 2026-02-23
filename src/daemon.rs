@@ -95,7 +95,6 @@ pub fn install(plist_content: &str) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[allow(dead_code)] // called from commands::start in T006
 pub fn kickstart() -> Result<(), Box<dyn std::error::Error>> {
     let output = Command::new("launchctl")
         .args(["kickstart", &service_target()])
