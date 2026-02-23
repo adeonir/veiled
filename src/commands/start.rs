@@ -3,7 +3,7 @@ use console::style;
 use crate::{commands, daemon, registry};
 
 pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
-    if daemon::is_installed() {
+    if daemon::is_installed()? {
         println!("{}", style("Daemon is already running.").dim());
         return Ok(());
     }
@@ -11,7 +11,7 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     let binary_path =
         std::env::current_exe().map_err(|e| format!("failed to resolve binary path: {e}"))?;
 
-    let plist = daemon::generate_plist(&binary_path);
+    let plist = daemon::generate_plist(&binary_path)?;
     daemon::install(&plist)?;
 
     println!("{}", style("Daemon activated.").green().bold());

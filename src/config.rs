@@ -59,10 +59,9 @@ impl From<LegacyConfig> for Config {
     }
 }
 
-fn config_path() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("~"))
-        .join(".config/veiled/config.toml")
+fn config_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let home = dirs::home_dir().ok_or("could not determine home directory")?;
+    Ok(home.join(".config/veiled/config.toml"))
 }
 
 pub fn expand_tilde(path: &str) -> PathBuf {
@@ -125,7 +124,7 @@ fn migrate_json(json_path: &Path, toml_path: &Path) -> Result<(), Box<dyn std::e
 }
 
 pub fn save(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
-    save_to(config, &config_path())
+    save_to(config, &config_path()?)
 }
 
 pub fn save_to(config: &Config, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
@@ -139,7 +138,7 @@ pub fn save_to(config: &Config, path: &Path) -> Result<(), Box<dyn std::error::E
 }
 
 pub fn load() -> Result<Config, Box<dyn std::error::Error>> {
-    load_from(&config_path())
+    load_from(&config_path()?)
 }
 
 pub fn load_from(path: &Path) -> Result<Config, Box<dyn std::error::Error>> {

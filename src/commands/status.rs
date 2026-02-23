@@ -3,7 +3,7 @@ use console::style;
 use crate::{daemon, disksize, registry};
 
 pub fn execute(refresh: bool) -> Result<(), Box<dyn std::error::Error>> {
-    if daemon::is_installed() {
+    if daemon::is_installed()? {
         println!("{} {}", style("Daemon:").bold(), style("active").green());
     } else {
         println!("{} {}", style("Daemon:").bold(), style("inactive").yellow());

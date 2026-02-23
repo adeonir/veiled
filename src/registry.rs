@@ -14,10 +14,9 @@ pub struct Registry {
     pub last_update_check: Option<i64>,
 }
 
-fn registry_path() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("~"))
-        .join(".config/veiled/registry.json")
+fn registry_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let home = dirs::home_dir().ok_or("could not determine home directory")?;
+    Ok(home.join(".config/veiled/registry.json"))
 }
 
 pub struct LockedRegistry {
@@ -60,7 +59,7 @@ impl LockedRegistry {
 
 impl Registry {
     pub fn locked() -> Result<LockedRegistry, Box<dyn std::error::Error>> {
-        LockedRegistry::acquire(&registry_path())
+        LockedRegistry::acquire(&registry_path()?)
     }
 
     #[cfg(test)]
