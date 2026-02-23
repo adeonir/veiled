@@ -65,6 +65,7 @@ impl LockedRegistry {
         self.file.set_len(0)?;
         self.file.rewind()?;
         serde_json::to_writer_pretty(&self.file, registry)?;
+        self.file.sync_data()?;
         Ok(())
     }
 }

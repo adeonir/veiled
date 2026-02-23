@@ -272,6 +272,7 @@ impl LockedConfig {
         self.file.set_len(0)?;
         self.file.rewind()?;
         self.file.write_all(content.as_bytes())?;
+        self.file.sync_data()?;
         Ok(())
     }
 }
