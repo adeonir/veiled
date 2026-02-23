@@ -2,6 +2,7 @@ use std::fs;
 use std::io::{BufReader, Seek};
 use std::path::{Path, PathBuf};
 
+use console::style;
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 
@@ -45,8 +46,16 @@ impl LockedRegistry {
             return Ok(Registry::default());
         }
         let reader = BufReader::new(&self.file);
-        let registry = serde_json::from_reader(reader)?;
-        Ok(registry)
+        match serde_json::from_reader(reader) {
+            Ok(registry) => Ok(registry),
+            Err(e) => {
+                eprintln!(
+                    "{} failed to parse registry: {e}",
+                    style("warning:").yellow().bold()
+                );
+                Ok(Registry::default())
+            }
+        }
     }
 
     pub fn save(&mut self, registry: &Registry) -> Result<(), Box<dyn std::error::Error>> {
@@ -260,6 +269,21 @@ mod tests {
     fn last_update_check_defaults_to_none() {
         let registry = Registry::default();
         assert!(registry.last_update_check.is_none());
+    }
+
+    #[test]
+    fn falls_back_to_defaults_on_malformed_json() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("registry.json");
+
+        fs::write(&path, "{{invalid json").unwrap();
+
+        let mut guard = Registry::locked_at(&path).unwrap();
+        let loaded = guard.load().unwrap();
+
+        assert!(loaded.paths.is_empty());
+        assert!(loaded.saved_bytes.is_none());
+        assert!(loaded.last_update_check.is_none());
     }
 
     #[test]
