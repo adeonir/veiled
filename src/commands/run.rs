@@ -3,6 +3,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use console::style;
 use indicatif::ProgressBar;
 
+use std::path::Path;
+
 use crate::{config, disksize, registry, scanner, tmutil, updater, verbose};
 
 const UPDATE_COOLDOWN_SECS: i64 = 86_400; // 24 hours
@@ -16,6 +18,31 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut guard = registry::Registry::locked()?;
     let mut reg = guard.load()?;
+
+    let mut re_applied = 0u32;
+    for entry in reg.list().to_vec() {
+        let p = Path::new(&entry);
+        if p.is_dir() && !tmutil::is_excluded(p).unwrap_or(true) {
+            if let Err(e) = tmutil::add_exclusion(p) {
+                eprintln!("{} {entry}: {e}", style("warning:").yellow().bold(),);
+            } else {
+                re_applied += 1;
+            }
+        }
+    }
+
+    if re_applied > 0 {
+        println!(
+            "{} {} lost {}",
+            style("Re-applied").green().bold(),
+            re_applied,
+            if re_applied == 1 {
+                "exclusion"
+            } else {
+                "exclusions"
+            }
+        );
+    }
 
     let spinner = ProgressBar::new_spinner();
     spinner.set_message("Scanning...");
