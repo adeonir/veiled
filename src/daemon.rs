@@ -4,6 +4,19 @@ use std::process::Command;
 
 const LABEL: &str = "com.veiled.agent";
 
+fn current_uid() -> u32 {
+    // SAFETY: getuid() is a single syscall with no failure mode
+    unsafe { libc::getuid() }
+}
+
+fn domain_target() -> String {
+    format!("gui/{}", current_uid())
+}
+
+fn service_target() -> String {
+    format!("gui/{}/{LABEL}", current_uid())
+}
+
 pub fn plist_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let home = dirs::home_dir().ok_or("could not determine home directory")?;
     Ok(home
@@ -68,7 +81,7 @@ pub fn install(plist_content: &str) -> Result<(), Box<dyn std::error::Error>> {
     fs::write(&path, plist_content)?;
 
     let output = Command::new("launchctl")
-        .arg("load")
+        .args(["bootstrap", &domain_target()])
         .arg(&path)
         .output()
         .map_err(|e| format!("failed to run launchctl: {e}"))?;
@@ -76,7 +89,22 @@ pub fn install(plist_content: &str) -> Result<(), Box<dyn std::error::Error>> {
     if !output.status.success() {
         fs::remove_file(&path).ok();
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("launchctl load failed: {stderr}").into());
+        return Err(format!("launchctl bootstrap failed: {stderr}").into());
+    }
+
+    Ok(())
+}
+
+#[allow(dead_code)] // called from commands::start in T006
+pub fn kickstart() -> Result<(), Box<dyn std::error::Error>> {
+    let output = Command::new("launchctl")
+        .args(["kickstart", &service_target()])
+        .output()
+        .map_err(|e| format!("failed to run launchctl: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("launchctl kickstart failed: {stderr}").into());
     }
 
     Ok(())
@@ -86,14 +114,13 @@ pub fn uninstall() -> Result<(), Box<dyn std::error::Error>> {
     let path = plist_path()?;
 
     let output = Command::new("launchctl")
-        .arg("unload")
-        .arg(&path)
+        .args(["bootout", &service_target()])
         .output()
         .map_err(|e| format!("failed to run launchctl: {e}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        eprintln!("warning: launchctl unload failed: {stderr}");
+        eprintln!("warning: launchctl bootout failed: {stderr}");
     }
 
     fs::remove_file(&path)?;
