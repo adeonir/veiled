@@ -1,18 +1,21 @@
 use assert_cmd::Command;
 use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
-use tempfile::NamedTempFile;
+use tempfile::{NamedTempFile, TempDir};
 
-fn veiled() -> Command {
-    cargo_bin_cmd!("veiled")
+fn veiled() -> (Command, TempDir) {
+    let dir = TempDir::new().unwrap();
+    let mut cmd = cargo_bin_cmd!("veiled");
+    cmd.env("VEILED_CONFIG_DIR", dir.path());
+    (cmd, dir)
 }
 
 // -- help and version --
 
 #[test]
 fn help_displays_all_commands() {
-    veiled()
-        .arg("--help")
+    let (mut cmd, _dir) = veiled();
+    cmd.arg("--help")
         .assert()
         .success()
         .stdout(predicate::str::contains("start"))
@@ -28,8 +31,8 @@ fn help_displays_all_commands() {
 
 #[test]
 fn help_shows_package_description() {
-    veiled()
-        .arg("--help")
+    let (mut cmd, _dir) = veiled();
+    cmd.arg("--help")
         .assert()
         .success()
         .stdout(predicate::str::contains("Time Machine"));
@@ -37,8 +40,8 @@ fn help_shows_package_description() {
 
 #[test]
 fn version_displays_cargo_version() {
-    veiled()
-        .arg("--version")
+    let (mut cmd, _dir) = veiled();
+    cmd.arg("--version")
         .assert()
         .success()
         .stdout(predicate::str::contains(env!("CARGO_PKG_VERSION")));
@@ -48,8 +51,8 @@ fn version_displays_cargo_version() {
 
 #[test]
 fn add_nonexistent_path_exits_with_error() {
-    veiled()
-        .args(["add", "/nonexistent/path/that/does/not/exist"])
+    let (mut cmd, _dir) = veiled();
+    cmd.args(["add", "/nonexistent/path/that/does/not/exist"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("error:"));
@@ -58,9 +61,8 @@ fn add_nonexistent_path_exits_with_error() {
 #[test]
 fn add_file_instead_of_directory_exits_with_error() {
     let file = NamedTempFile::new().unwrap();
-
-    veiled()
-        .args(["add", file.path().to_str().unwrap()])
+    let (mut cmd, _dir) = veiled();
+    cmd.args(["add", file.path().to_str().unwrap()])
         .assert()
         .failure()
         .stderr(predicate::str::contains("not a directory"));
@@ -68,13 +70,14 @@ fn add_file_instead_of_directory_exits_with_error() {
 
 #[test]
 fn add_requires_path_argument() {
-    veiled().arg("add").assert().failure();
+    let (mut cmd, _dir) = veiled();
+    cmd.arg("add").assert().failure();
 }
 
 #[test]
 fn add_help_shows_path_argument() {
-    veiled()
-        .args(["add", "--help"])
+    let (mut cmd, _dir) = veiled();
+    cmd.args(["add", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("<PATH>").or(predicate::str::contains("path")));
@@ -84,8 +87,8 @@ fn add_help_shows_path_argument() {
 
 #[test]
 fn remove_unmanaged_path_shows_not_managed() {
-    veiled()
-        .args(["remove", "/nonexistent/path/that/does/not/exist"])
+    let (mut cmd, _dir) = veiled();
+    cmd.args(["remove", "/nonexistent/path/that/does/not/exist"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("not managed by veiled"));
@@ -93,13 +96,14 @@ fn remove_unmanaged_path_shows_not_managed() {
 
 #[test]
 fn remove_requires_path_argument() {
-    veiled().arg("remove").assert().failure();
+    let (mut cmd, _dir) = veiled();
+    cmd.arg("remove").assert().failure();
 }
 
 #[test]
 fn remove_help_shows_path_argument() {
-    veiled()
-        .args(["remove", "--help"])
+    let (mut cmd, _dir) = veiled();
+    cmd.args(["remove", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("<PATH>").or(predicate::str::contains("path")));
@@ -109,15 +113,16 @@ fn remove_help_shows_path_argument() {
 
 #[test]
 fn list_exits_successfully() {
-    veiled().arg("list").assert().success();
+    let (mut cmd, _dir) = veiled();
+    cmd.arg("list").assert().success();
 }
 
 // -- status command --
 
 #[test]
 fn status_shows_daemon_state() {
-    veiled()
-        .arg("status")
+    let (mut cmd, _dir) = veiled();
+    cmd.arg("status")
         .assert()
         .success()
         .stdout(predicate::str::contains("Daemon:"));
@@ -125,7 +130,8 @@ fn status_shows_daemon_state() {
 
 #[test]
 fn status_shows_exclusion_info() {
-    veiled().arg("status").assert().success().stdout(
+    let (mut cmd, _dir) = veiled();
+    cmd.arg("status").assert().success().stdout(
         predicate::str::contains("excluded by veiled")
             .or(predicate::str::contains("No exclusions")),
     );
@@ -133,13 +139,14 @@ fn status_shows_exclusion_info() {
 
 #[test]
 fn status_refresh_flag_accepted() {
-    veiled().args(["status", "--refresh"]).assert().success();
+    let (mut cmd, _dir) = veiled();
+    cmd.args(["status", "--refresh"]).assert().success();
 }
 
 #[test]
 fn status_help_shows_refresh_flag() {
-    veiled()
-        .args(["status", "--help"])
+    let (mut cmd, _dir) = veiled();
+    cmd.args(["status", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("--refresh"));
@@ -149,13 +156,14 @@ fn status_help_shows_refresh_flag() {
 
 #[test]
 fn reset_aborts_on_decline() {
-    veiled().arg("reset").write_stdin("n\n").assert().success();
+    let (mut cmd, _dir) = veiled();
+    cmd.arg("reset").write_stdin("n\n").assert().success();
 }
 
 #[test]
 fn reset_help_shows_yes_flag() {
-    veiled()
-        .args(["reset", "--help"])
+    let (mut cmd, _dir) = veiled();
+    cmd.args(["reset", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("--yes"));
@@ -165,8 +173,8 @@ fn reset_help_shows_yes_flag() {
 
 #[test]
 fn start_help_shows_description() {
-    veiled()
-        .args(["start", "--help"])
+    let (mut cmd, _dir) = veiled();
+    cmd.args(["start", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::is_empty().not());
@@ -176,8 +184,8 @@ fn start_help_shows_description() {
 
 #[test]
 fn stop_help_shows_description() {
-    veiled()
-        .args(["stop", "--help"])
+    let (mut cmd, _dir) = veiled();
+    cmd.args(["stop", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("Deactivate daemon"));
@@ -187,8 +195,8 @@ fn stop_help_shows_description() {
 
 #[test]
 fn update_help_shows_description() {
-    veiled()
-        .args(["update", "--help"])
+    let (mut cmd, _dir) = veiled();
+    cmd.args(["update", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains(
@@ -199,8 +207,8 @@ fn update_help_shows_description() {
 #[test]
 fn update_displays_current_version() {
     // update will fail (no releases / network) but should print the current version first
-    veiled()
-        .arg("update")
+    let (mut cmd, _dir) = veiled();
+    cmd.arg("update")
         .assert()
         .stdout(predicate::str::contains(env!("CARGO_PKG_VERSION")));
 }
@@ -209,18 +217,20 @@ fn update_displays_current_version() {
 
 #[test]
 fn verbose_flag_accepted_before_subcommand() {
-    veiled().args(["--verbose", "list"]).assert().success();
+    let (mut cmd, _dir) = veiled();
+    cmd.args(["--verbose", "list"]).assert().success();
 }
 
 #[test]
 fn verbose_flag_accepted_with_status() {
-    veiled().args(["--verbose", "status"]).assert().success();
+    let (mut cmd, _dir) = veiled();
+    cmd.args(["--verbose", "status"]).assert().success();
 }
 
 #[test]
 fn verbose_flag_shown_in_help() {
-    veiled()
-        .arg("--help")
+    let (mut cmd, _dir) = veiled();
+    cmd.arg("--help")
         .assert()
         .success()
         .stdout(predicate::str::contains("--verbose"));
@@ -230,7 +240,8 @@ fn verbose_flag_shown_in_help() {
 
 #[test]
 fn status_fda_warning_on_stderr_if_present() {
-    let output = veiled().args(["status"]).output().unwrap();
+    let (mut cmd, _dir) = veiled();
+    let output = cmd.args(["status"]).output().unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
 
     // FDA check may or may not fail depending on environment;
@@ -245,7 +256,8 @@ fn status_fda_warning_on_stderr_if_present() {
 
 #[test]
 fn verbose_status_shows_fda_detail_if_warning() {
-    let output = veiled().args(["--verbose", "status"]).output().unwrap();
+    let (mut cmd, _dir) = veiled();
+    let output = cmd.args(["--verbose", "status"]).output().unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
 
     // When verbose + FDA warning, both "warning:" and "detail:" lines should appear
@@ -259,8 +271,8 @@ fn verbose_status_shows_fda_detail_if_warning() {
 
 #[test]
 fn start_help_shows_install_description() {
-    veiled()
-        .args(["start", "--help"])
+    let (mut cmd, _dir) = veiled();
+    cmd.args(["start", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("Install binary"));
@@ -270,5 +282,6 @@ fn start_help_shows_install_description() {
 
 #[test]
 fn unknown_command_exits_with_error() {
-    veiled().arg("foobar").assert().failure();
+    let (mut cmd, _dir) = veiled();
+    cmd.arg("foobar").assert().failure();
 }

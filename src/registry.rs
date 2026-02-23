@@ -16,6 +16,9 @@ pub struct Registry {
 }
 
 fn registry_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    if let Ok(dir) = std::env::var("VEILED_CONFIG_DIR") {
+        return Ok(PathBuf::from(dir).join("registry.json"));
+    }
     let home = dirs::home_dir().ok_or("could not determine home directory")?;
     Ok(home.join(".config/veiled/registry.json"))
 }

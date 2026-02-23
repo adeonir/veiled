@@ -62,6 +62,9 @@ impl From<LegacyConfig> for Config {
 }
 
 fn config_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    if let Ok(dir) = std::env::var("VEILED_CONFIG_DIR") {
+        return Ok(PathBuf::from(dir).join("config.toml"));
+    }
     let home = dirs::home_dir().ok_or("could not determine home directory")?;
     Ok(home.join(".config/veiled/config.toml"))
 }
