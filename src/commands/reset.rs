@@ -40,8 +40,9 @@ pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
     for path in &paths {
         if let Err(e) = tmutil::remove_exclusion(path.as_ref()) {
             eprintln!("{} {path}: {e}", style("warning:").yellow().bold(),);
+        } else {
+            removed += 1;
         }
-        removed += 1;
     }
 
     let reg = registry::Registry::default();
