@@ -25,7 +25,7 @@ pub fn dir_size(path: &Path) -> u64 {
                 let Ok(metadata) = entry.metadata() else {
                     continue;
                 };
-                total += metadata.len();
+                total = total.saturating_add(metadata.len());
             }
         }
     }
@@ -34,7 +34,10 @@ pub fn dir_size(path: &Path) -> u64 {
 }
 
 pub fn calculate_total_size(paths: &[String]) -> u64 {
-    paths.iter().map(|p| dir_size(Path::new(p))).sum()
+    paths
+        .iter()
+        .map(|p| dir_size(Path::new(p)))
+        .fold(0u64, u64::saturating_add)
 }
 
 pub fn format_size(bytes: u64) -> String {

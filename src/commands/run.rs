@@ -81,7 +81,7 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let new_size = disksize::calculate_total_size(&added_paths);
-    reg.saved_bytes = Some(reg.saved_bytes.unwrap_or(0) + new_size);
+    reg.saved_bytes = Some(reg.saved_bytes.unwrap_or(0).saturating_add(new_size));
     guard.save(&reg)?;
 
     println!(
