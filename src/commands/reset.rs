@@ -1,13 +1,16 @@
 use std::io::{self, Write};
+use std::path::Path;
 
 use console::style;
 
 use crate::{config, registry, tmutil};
 
 pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let mut guard = registry::Registry::locked()?;
-    let reg = guard.load()?;
-    let paths = reg.list().to_vec();
+    let paths = {
+        let mut guard = registry::Registry::locked()?;
+        let reg = guard.load()?;
+        reg.list().to_vec()
+    };
 
     if paths.is_empty() {
         println!("{}", style("No exclusions to remove.").dim());
@@ -39,6 +42,10 @@ pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut failed: Vec<String> = Vec::new();
 
     for path in &paths {
+        if !Path::new(path).exists() {
+            removed += 1;
+            continue;
+        }
         if let Err(e) = tmutil::remove_exclusion(path.as_ref()) {
             eprintln!("{} {path}: {e}", style("warning:").yellow().bold(),);
             failed.push(path.clone());
@@ -46,12 +53,6 @@ pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
             removed += 1;
         }
     }
-
-    let reg = registry::Registry {
-        paths: failed.clone(),
-        ..registry::Registry::default()
-    };
-    guard.save(&reg)?;
 
     let mut cfg_guard = config::Config::locked()?;
     let mut cfg = cfg_guard.load()?;
@@ -62,6 +63,13 @@ pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
             cfg_guard.save(&cfg)?;
         }
     }
+
+    let mut guard = registry::Registry::locked()?;
+    let reg = registry::Registry {
+        paths: failed.clone(),
+        ..registry::Registry::default()
+    };
+    guard.save(&reg)?;
 
     if failed.is_empty() {
         println!(
