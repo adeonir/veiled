@@ -1,9 +1,8 @@
 use std::fs;
+use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
 use std::time::Duration;
 
-use console::style;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use ureq::Agent;
@@ -127,34 +126,6 @@ pub fn check() -> Result<UpdateResult, Box<dyn std::error::Error>> {
     })
 }
 
-struct TempFile {
-    path: PathBuf,
-    disarmed: bool,
-}
-
-impl TempFile {
-    fn new(path: PathBuf) -> Self {
-        Self {
-            path,
-            disarmed: false,
-        }
-    }
-}
-
-impl Drop for TempFile {
-    fn drop(&mut self) {
-        if !self.disarmed
-            && let Err(e) = fs::remove_file(&self.path)
-        {
-            eprintln!(
-                "{} failed to clean up {}: {e}",
-                style("warning:").yellow().bold(),
-                self.path.display()
-            );
-        }
-    }
-}
-
 fn download_and_replace(
     agent: &Agent,
     binary_url: &str,
@@ -166,8 +137,6 @@ fn download_and_replace(
     let parent = binary_path
         .parent()
         .ok_or("failed to resolve binary directory")?;
-
-    let mut temp = TempFile::new(parent.join(".veiled-update"));
 
     let checksum_content = agent
         .get(checksum_url)
@@ -197,11 +166,16 @@ fn download_and_replace(
         return Err(format!("checksum mismatch: expected {expected}, got {actual}").into());
     }
 
-    fs::write(&temp.path, &bytes)?;
-    fs::set_permissions(&temp.path, fs::Permissions::from_mode(0o755))?;
-    fs::rename(&temp.path, &binary_path)?;
+    let mut temp = tempfile::NamedTempFile::new_in(parent)
+        .map_err(|e| format!("failed to create temp file: {e}"))?;
 
-    temp.disarmed = true;
+    temp.write_all(&bytes)
+        .map_err(|e| format!("failed to write update: {e}"))?;
+
+    fs::set_permissions(temp.path(), fs::Permissions::from_mode(0o755))?;
+
+    temp.persist(&binary_path)
+        .map_err(|e| format!("failed to install update: {e}"))?;
 
     Ok(())
 }
@@ -361,31 +335,5 @@ mod tests {
     fn parse_checksum_rejects_non_hex() {
         let content = "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz  file";
         assert!(parse_checksum(content).is_err());
-    }
-
-    #[test]
-    fn temp_file_cleanup_on_drop() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let path = dir.path().join("temp-binary");
-        fs::write(&path, b"data").unwrap();
-        assert!(path.exists());
-
-        let temp = TempFile::new(path.clone());
-        drop(temp);
-
-        assert!(!path.exists());
-    }
-
-    #[test]
-    fn temp_file_disarmed_skips_cleanup() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let path = dir.path().join("temp-binary");
-        fs::write(&path, b"data").unwrap();
-
-        let mut temp = TempFile::new(path.clone());
-        temp.disarmed = true;
-        drop(temp);
-
-        assert!(path.exists());
     }
 }
