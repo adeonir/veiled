@@ -24,9 +24,10 @@ pub fn scan(config: &Config) -> Vec<PathBuf> {
     }
 
     let excluded = tmutil::are_excluded(&candidates).unwrap_or_else(|e| {
-        if verbose() {
-            eprintln!("{} batch isexcluded failed: {e}", style("verbose:").dim());
-        }
+        eprintln!(
+            "{} batch isexcluded failed: {e}",
+            style("warning:").yellow().bold()
+        );
         vec![false; candidates.len()]
     });
 

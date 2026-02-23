@@ -52,8 +52,10 @@ pub fn format_size(bytes: u64) -> String {
         format!("{:.1} GB", value / GB)
     } else if value >= MB {
         format!("{:.1} MB", value / MB)
-    } else {
+    } else if value >= KB {
         format!("{:.1} KB", value / KB)
+    } else {
+        format!("{bytes} B")
     }
 }
 
@@ -143,8 +145,14 @@ mod tests {
     }
 
     #[test]
+    fn format_size_bytes() {
+        assert_eq!(format_size(0), "0 B");
+        assert_eq!(format_size(512), "512 B");
+        assert_eq!(format_size(1_023), "1023 B");
+    }
+
+    #[test]
     fn format_size_kilobytes() {
-        assert_eq!(format_size(0), "0.0 KB");
         assert_eq!(format_size(1_024), "1.0 KB");
         assert_eq!(format_size(524_288), "512.0 KB");
         assert_eq!(format_size(1_048_575), "1024.0 KB");

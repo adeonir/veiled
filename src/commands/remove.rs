@@ -103,4 +103,9 @@ mod tests {
     fn clean_path_handles_absolute() {
         assert_eq!(clean_path(Path::new("/a/b/c")), Path::new("/a/b/c"));
     }
+
+    #[test]
+    fn clean_path_stops_at_root() {
+        assert_eq!(clean_path(Path::new("/a/../../etc")), Path::new("/etc"));
+    }
 }
