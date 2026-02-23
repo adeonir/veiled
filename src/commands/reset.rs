@@ -65,10 +65,9 @@ pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut guard = registry::Registry::locked()?;
-    let reg = registry::Registry {
-        paths: failed.clone(),
-        ..registry::Registry::default()
-    };
+    let mut reg = guard.load()?;
+    reg.paths.clone_from(&failed);
+    reg.saved_bytes = None;
     guard.save(&reg)?;
 
     if failed.is_empty() {

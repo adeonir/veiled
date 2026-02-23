@@ -70,6 +70,9 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
         .collect();
 
     if new_paths.is_empty() {
+        if !stale.is_empty() {
+            guard.save(&reg)?;
+        }
         println!("{}", style("Nothing new to exclude.").dim());
         return Ok(());
     }
