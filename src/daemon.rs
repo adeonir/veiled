@@ -177,7 +177,11 @@ pub fn uninstall() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    fs::remove_file(&path)?;
+    if let Err(e) = fs::remove_file(&path)
+        && e.kind() != std::io::ErrorKind::NotFound
+    {
+        return Err(e.into());
+    }
 
     Ok(())
 }
