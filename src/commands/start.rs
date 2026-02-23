@@ -16,10 +16,13 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{}", style("Daemon activated.").green().bold());
 
-    let mut guard = registry::Registry::locked()?;
-    let reg = guard.load()?;
+    let needs_scan = {
+        let mut guard = registry::Registry::locked()?;
+        let reg = guard.load()?;
+        reg.list().is_empty()
+    };
 
-    if reg.list().is_empty() {
+    if needs_scan {
         commands::run::execute()
     } else {
         Ok(())
