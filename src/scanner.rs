@@ -68,7 +68,7 @@ fn collect_paths(config: &Config) -> Vec<PathBuf> {
 pub fn parse_git_ignored(repo_path: &Path, output: &str) -> Vec<PathBuf> {
     let mut dirs = HashSet::new();
 
-    for line in output.lines() {
+    for line in output.split('\0') {
         let line = line.trim();
         if line.is_empty() {
             continue;
@@ -92,7 +92,13 @@ pub fn scan_git_repo(repo_path: &Path) -> Vec<PathBuf> {
     let output = Command::new("git")
         .arg("-C")
         .arg(repo_path)
-        .args(["ls-files", "--ignored", "--others", "--exclude-standard"])
+        .args([
+            "ls-files",
+            "--ignored",
+            "--others",
+            "--exclude-standard",
+            "-z",
+        ])
         .output();
 
     let Ok(output) = output else {
@@ -190,7 +196,7 @@ mod tests {
     fn parse_git_ignored_extracts_builtin_dirs() {
         let repo = Path::new("/Users/dev/project");
         let output =
-            "node_modules/express/index.js\nnode_modules/.package-lock.json\nsrc/main.rs\n";
+            "node_modules/express/index.js\0node_modules/.package-lock.json\0src/main.rs\0";
 
         let results = parse_git_ignored(repo, output);
 
@@ -201,7 +207,7 @@ mod tests {
     #[test]
     fn parse_git_ignored_filters_non_builtin() {
         let repo = Path::new("/Users/dev/project");
-        let output = "logs/app.log\nsrc/generated/types.ts\n";
+        let output = "logs/app.log\0src/generated/types.ts\0";
 
         let results = parse_git_ignored(repo, output);
 
@@ -219,7 +225,7 @@ mod tests {
     #[test]
     fn parse_git_ignored_deduplicates_same_dir() {
         let repo = Path::new("/Users/dev/project");
-        let output = "target/debug/veiled\ntarget/release/veiled\ntarget/.rustc_info.json\n";
+        let output = "target/debug/veiled\0target/release/veiled\0target/.rustc_info.json\0";
 
         let results = parse_git_ignored(repo, output);
 
@@ -230,7 +236,7 @@ mod tests {
     #[test]
     fn parse_git_ignored_handles_multiple_builtin_dirs() {
         let repo = Path::new("/Users/dev/project");
-        let output = "node_modules/pkg/index.js\ntarget/debug/bin\n.next/cache/webpack\n";
+        let output = "node_modules/pkg/index.js\0target/debug/bin\0.next/cache/webpack\0";
 
         let results = parse_git_ignored(repo, output);
 
@@ -243,7 +249,7 @@ mod tests {
     #[test]
     fn parse_git_ignored_finds_nested_builtin_in_monorepo() {
         let repo = Path::new("/Users/dev/monorepo");
-        let output = "packages/api/node_modules/express/index.js\npackages/api/node_modules/.package-lock.json\n";
+        let output = "packages/api/node_modules/express/index.js\0packages/api/node_modules/.package-lock.json\0";
 
         let results = parse_git_ignored(repo, output);
 
@@ -254,7 +260,7 @@ mod tests {
     #[test]
     fn parse_git_ignored_finds_multiple_nested_builtins() {
         let repo = Path::new("/Users/dev/monorepo");
-        let output = "packages/api/node_modules/pkg/index.js\napps/web/.next/cache/file\napps/web/dist/bundle.js\n";
+        let output = "packages/api/node_modules/pkg/index.js\0apps/web/.next/cache/file\0apps/web/dist/bundle.js\0";
 
         let results = parse_git_ignored(repo, output);
 
@@ -267,12 +273,23 @@ mod tests {
     #[test]
     fn parse_git_ignored_deduplicates_nested_builtins() {
         let repo = Path::new("/Users/dev/monorepo");
-        let output = "packages/api/node_modules/a/index.js\npackages/api/node_modules/b/index.js\n";
+        let output = "packages/api/node_modules/a/index.js\0packages/api/node_modules/b/index.js\0";
 
         let results = parse_git_ignored(repo, output);
 
         assert_eq!(results.len(), 1);
         assert!(results.contains(&repo.join("packages/api/node_modules")));
+    }
+
+    #[test]
+    fn parse_git_ignored_handles_paths_with_special_chars() {
+        let repo = Path::new("/Users/dev/project");
+        let output = "node_modules/.pnpm/@fastify+send@4.1.0/node_modules/send/index.js\0";
+
+        let results = parse_git_ignored(repo, output);
+
+        assert_eq!(results.len(), 1);
+        assert!(results.contains(&repo.join("node_modules")));
     }
 
     #[test]
