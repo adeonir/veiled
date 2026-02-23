@@ -1,11 +1,11 @@
 use std::fs;
-use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
+use console::style;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default)]
 pub struct Config {
     pub search_paths: Vec<String>,
     pub extra_exclusions: Vec<String>,
@@ -28,10 +28,41 @@ impl Default for Config {
     }
 }
 
+#[derive(Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+struct LegacyConfig {
+    search_paths: Vec<String>,
+    extra_exclusions: Vec<String>,
+    ignore_paths: Vec<String>,
+    auto_update: bool,
+}
+
+impl Default for LegacyConfig {
+    fn default() -> Self {
+        Self {
+            search_paths: vec![],
+            extra_exclusions: vec![],
+            ignore_paths: vec![],
+            auto_update: true,
+        }
+    }
+}
+
+impl From<LegacyConfig> for Config {
+    fn from(legacy: LegacyConfig) -> Self {
+        Self {
+            search_paths: legacy.search_paths,
+            extra_exclusions: legacy.extra_exclusions,
+            ignore_paths: legacy.ignore_paths,
+            auto_update: legacy.auto_update,
+        }
+    }
+}
+
 fn config_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("~"))
-        .join(".config/veiled/config.json")
+        .join(".config/veiled/config.toml")
 }
 
 pub fn expand_tilde(path: &str) -> PathBuf {
@@ -58,6 +89,15 @@ fn expand_paths(config: &mut Config) {
     }
 }
 
+fn migrate_json(json_path: &Path, toml_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let content = fs::read_to_string(json_path)?;
+    let legacy: LegacyConfig = serde_json::from_str(&content).unwrap_or_default();
+    let config: Config = legacy.into();
+    save_to(&config, toml_path)?;
+    fs::remove_file(json_path)?;
+    Ok(())
+}
+
 pub fn save(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     save_to(config, &config_path())
 }
@@ -66,7 +106,7 @@ pub fn save_to(config: &Config, path: &Path) -> Result<(), Box<dyn std::error::E
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(path, serde_json::to_string_pretty(config)?)?;
+    fs::write(path, toml::to_string_pretty(config)?)?;
     Ok(())
 }
 
@@ -75,15 +115,38 @@ pub fn load() -> Result<Config, Box<dyn std::error::Error>> {
 }
 
 pub fn load_from(path: &Path) -> Result<Config, Box<dyn std::error::Error>> {
+    if let Some(parent) = path.parent() {
+        let json_path = parent.join("config.json");
+        if json_path.exists()
+            && !path.exists()
+            && let Err(e) = migrate_json(&json_path, path)
+        {
+            eprintln!(
+                "{} failed to migrate config.json: {e}",
+                style("warning:").yellow().bold()
+            );
+        }
+    }
+
     let mut config = if path.exists() {
-        let file = fs::File::open(path)?;
-        serde_json::from_reader(BufReader::new(file)).unwrap_or_default()
+        let content = fs::read_to_string(path)?;
+        match toml::from_str(&content) {
+            Ok(config) => config,
+            Err(e) => {
+                eprintln!(
+                    "{} failed to parse {}: {e}",
+                    style("warning:").yellow().bold(),
+                    path.display()
+                );
+                Config::default()
+            }
+        }
     } else {
         let config = Config::default();
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        fs::write(path, serde_json::to_string_pretty(&config)?)?;
+        fs::write(path, toml::to_string_pretty(&config)?)?;
         config
     };
 
@@ -99,7 +162,7 @@ mod tests {
     #[test]
     fn creates_default_config_when_missing() {
         let dir = TempDir::new().unwrap();
-        let path = dir.path().join("config.json");
+        let path = dir.path().join("config.toml");
 
         let config = load_from(&path).unwrap();
 
@@ -109,16 +172,24 @@ mod tests {
     }
 
     #[test]
-    fn loads_existing_config() {
+    fn default_config_is_toml_format() {
         let dir = TempDir::new().unwrap();
-        let path = dir.path().join("config.json");
+        let path = dir.path().join("config.toml");
 
-        let custom = r#"{
-            "searchPaths": ["~/Code", "~/Work"],
-            "extraExclusions": [],
-            "ignorePaths": [],
-            "autoUpdate": false
-        }"#;
+        load_from(&path).unwrap();
+
+        let content = fs::read_to_string(&path).unwrap();
+        assert!(content.contains("search_paths"));
+        assert!(content.contains("auto_update"));
+        assert!(!content.contains("searchPaths"));
+    }
+
+    #[test]
+    fn loads_existing_toml_config() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("config.toml");
+
+        let custom = "search_paths = [\"~/Code\", \"~/Work\"]\nextra_exclusions = []\nignore_paths = []\nauto_update = false\n";
         fs::write(&path, custom).unwrap();
 
         let config = load_from(&path).unwrap();
@@ -153,7 +224,7 @@ mod tests {
     #[test]
     fn expands_tilde_in_config_paths() {
         let dir = TempDir::new().unwrap();
-        let path = dir.path().join("config.json");
+        let path = dir.path().join("config.toml");
 
         let config = load_from(&path).unwrap();
         let home = dirs::home_dir().unwrap().to_string_lossy().into_owned();
@@ -169,9 +240,9 @@ mod tests {
     #[test]
     fn falls_back_to_defaults_on_malformed_config() {
         let dir = TempDir::new().unwrap();
-        let path = dir.path().join("config.json");
+        let path = dir.path().join("config.toml");
 
-        fs::write(&path, "").unwrap();
+        fs::write(&path, "{{invalid toml").unwrap();
 
         let config = load_from(&path).unwrap();
 
@@ -182,7 +253,7 @@ mod tests {
     #[test]
     fn save_and_load_roundtrip() {
         let dir = TempDir::new().unwrap();
-        let path = dir.path().join("config.json");
+        let path = dir.path().join("config.toml");
 
         let mut config = Config::default();
         config.extra_exclusions = vec!["/Users/dev/cache".to_string()];
@@ -197,7 +268,7 @@ mod tests {
     #[test]
     fn save_creates_parent_dirs() {
         let dir = TempDir::new().unwrap();
-        let path = dir.path().join("nested/dir/config.json");
+        let path = dir.path().join("nested/dir/config.toml");
 
         let config = Config::default();
         save_to(&config, &path).unwrap();
@@ -208,14 +279,52 @@ mod tests {
     #[test]
     fn handles_partial_config_with_defaults() {
         let dir = TempDir::new().unwrap();
-        let path = dir.path().join("config.json");
+        let path = dir.path().join("config.toml");
 
-        fs::write(&path, r#"{"autoUpdate": false}"#).unwrap();
+        fs::write(&path, "auto_update = false\n").unwrap();
 
         let config = load_from(&path).unwrap();
 
         assert!(!config.auto_update);
         assert_eq!(config.search_paths.len(), 2);
         assert_eq!(config.ignore_paths.len(), 3);
+    }
+
+    #[test]
+    fn migrates_json_to_toml() {
+        let dir = TempDir::new().unwrap();
+        let json_path = dir.path().join("config.json");
+        let toml_path = dir.path().join("config.toml");
+
+        let json = r#"{
+            "searchPaths": ["~/Code"],
+            "extraExclusions": ["/tmp/cache"],
+            "ignorePaths": ["~/Library"],
+            "autoUpdate": false
+        }"#;
+        fs::write(&json_path, json).unwrap();
+
+        let config = load_from(&toml_path).unwrap();
+
+        assert!(!json_path.exists());
+        assert!(toml_path.exists());
+        assert_eq!(config.search_paths.len(), 1);
+        assert!(!config.auto_update);
+        assert_eq!(config.extra_exclusions.len(), 1);
+    }
+
+    #[test]
+    fn migration_skipped_when_toml_exists() {
+        let dir = TempDir::new().unwrap();
+        let json_path = dir.path().join("config.json");
+        let toml_path = dir.path().join("config.toml");
+
+        fs::write(&json_path, r#"{"autoUpdate": false}"#).unwrap();
+        fs::write(&toml_path, "auto_update = true\n").unwrap();
+
+        let config = load_from(&toml_path).unwrap();
+
+        assert!(json_path.exists());
+        assert!(config.auto_update);
     }
 }
