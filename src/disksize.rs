@@ -1,29 +1,32 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub fn dir_size(path: &Path) -> u64 {
-    let Ok(entries) = fs::read_dir(path) else {
-        return 0;
-    };
-
     let mut total = 0u64;
+    let mut stack: Vec<PathBuf> = vec![path.to_path_buf()];
 
-    for entry in entries.flatten() {
-        let Ok(ft) = entry.file_type() else {
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = fs::read_dir(&dir) else {
             continue;
         };
 
-        if ft.is_symlink() {
-            continue;
-        }
-
-        if ft.is_dir() {
-            total += dir_size(&entry.path());
-        } else {
-            let Ok(metadata) = entry.metadata() else {
+        for entry in entries.flatten() {
+            let Ok(ft) = entry.file_type() else {
                 continue;
             };
-            total += metadata.len();
+
+            if ft.is_symlink() {
+                continue;
+            }
+
+            if ft.is_dir() {
+                stack.push(entry.path());
+            } else {
+                let Ok(metadata) = entry.metadata() else {
+                    continue;
+                };
+                total += metadata.len();
+            }
         }
     }
 

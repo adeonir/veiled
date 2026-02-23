@@ -104,6 +104,7 @@ fn auto_update() -> Result<(), Box<dyn std::error::Error>> {
     let now = now_epoch();
 
     if let Some(last) = reg.last_update_check
+        && last <= now
         && now - last < UPDATE_COOLDOWN_SECS
     {
         if verbose() {
