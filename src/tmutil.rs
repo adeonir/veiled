@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 pub fn check_access() -> Result<(), String> {
@@ -46,6 +46,39 @@ pub fn remove_exclusion(path: &Path) -> Result<(), String> {
     }
 }
 
+pub fn are_excluded(paths: &[PathBuf]) -> Result<Vec<bool>, String> {
+    if paths.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let output = Command::new("tmutil")
+        .arg("isexcluded")
+        .args(paths)
+        .output()
+        .map_err(|e| format!("failed to run tmutil: {e}"))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let results = parse_are_excluded(&stdout);
+
+    if results.len() != paths.len() {
+        return Err(format!(
+            "tmutil returned {} results for {} paths",
+            results.len(),
+            paths.len()
+        ));
+    }
+
+    Ok(results)
+}
+
+fn parse_are_excluded(output: &str) -> Vec<bool> {
+    output
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(|line| line.starts_with("[Excluded]"))
+        .collect()
+}
+
 pub fn is_excluded(path: &Path) -> Result<bool, String> {
     let output = Command::new("tmutil")
         .arg("isexcluded")
@@ -81,6 +114,34 @@ mod tests {
     #[test]
     fn parses_empty_output() {
         assert!(!parse_is_excluded(""));
+    }
+
+    #[test]
+    fn parses_batch_excluded_output() {
+        let output = "[Excluded]      /Users/dev/project/node_modules\n[Excluded]      /Users/dev/project/target\n";
+        let results = parse_are_excluded(output);
+        assert_eq!(results, vec![true, true]);
+    }
+
+    #[test]
+    fn parses_batch_mixed_output() {
+        let output = "[Excluded]      /Users/dev/project/node_modules\n[NotExcluded]   /Users/dev/project/src\n[Excluded]      /Users/dev/project/target\n";
+        let results = parse_are_excluded(output);
+        assert_eq!(results, vec![true, false, true]);
+    }
+
+    #[test]
+    fn parses_batch_empty_output() {
+        let results = parse_are_excluded("");
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn parses_batch_all_not_excluded() {
+        let output =
+            "[NotExcluded]   /Users/dev/project/src\n[NotExcluded]   /Users/dev/project/docs\n";
+        let results = parse_are_excluded(output);
+        assert_eq!(results, vec![false, false]);
     }
 
     #[test]

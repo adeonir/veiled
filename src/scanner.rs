@@ -11,9 +11,30 @@ use crate::tmutil;
 use crate::verbose;
 
 pub fn scan(config: &Config) -> Vec<PathBuf> {
-    let results: Vec<PathBuf> = collect_paths(config)
+    let candidates = collect_paths(config);
+
+    if candidates.is_empty() {
+        if verbose() {
+            eprintln!(
+                "{} scan found no new paths to exclude",
+                style("verbose:").dim()
+            );
+        }
+        return vec![];
+    }
+
+    let excluded = tmutil::are_excluded(&candidates).unwrap_or_else(|e| {
+        if verbose() {
+            eprintln!("{} batch isexcluded failed: {e}", style("verbose:").dim());
+        }
+        vec![false; candidates.len()]
+    });
+
+    let results: Vec<PathBuf> = candidates
         .into_iter()
-        .filter(|p| !tmutil::is_excluded(p).unwrap_or(false))
+        .zip(excluded)
+        .filter(|(_, is_excluded)| !is_excluded)
+        .map(|(path, _)| path)
         .collect();
 
     if verbose() && results.is_empty() {
