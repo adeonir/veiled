@@ -126,6 +126,18 @@ pub fn check() -> Result<UpdateResult, Box<dyn std::error::Error>> {
     })
 }
 
+const TRUSTED_ORIGINS: &[&str] = &[
+    "https://github.com/",
+    "https://objects.githubusercontent.com/",
+];
+
+fn validate_download_url(url: &str) -> Result<(), Box<dyn std::error::Error>> {
+    if !TRUSTED_ORIGINS.iter().any(|origin| url.starts_with(origin)) {
+        return Err(format!("untrusted download origin: {url}").into());
+    }
+    Ok(())
+}
+
 fn download_and_replace(
     agent: &Agent,
     binary_url: &str,
@@ -137,6 +149,9 @@ fn download_and_replace(
     let parent = binary_path
         .parent()
         .ok_or("failed to resolve binary directory")?;
+
+    validate_download_url(binary_url)?;
+    validate_download_url(checksum_url)?;
 
     let checksum_content = agent
         .get(checksum_url)
@@ -335,5 +350,27 @@ mod tests {
     fn parse_checksum_rejects_non_hex() {
         let content = "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz  file";
         assert!(parse_checksum(content).is_err());
+    }
+
+    #[test]
+    fn validate_download_url_accepts_github() {
+        assert!(
+            validate_download_url(
+                "https://github.com/adeonir/veiled/releases/download/v0.1.0/veiled-macos-arm64"
+            )
+            .is_ok()
+        );
+        assert!(
+            validate_download_url(
+                "https://objects.githubusercontent.com/github-production-release-asset/123/456"
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn validate_download_url_rejects_unknown_origin() {
+        assert!(validate_download_url("https://evil.com/veiled-macos-arm64").is_err());
+        assert!(validate_download_url("http://github.com/insecure").is_err());
     }
 }
