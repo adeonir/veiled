@@ -1,11 +1,16 @@
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
+use std::time::Duration;
 
+use console::style;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
+use ureq::Agent;
 
 const REPO: &str = "adeonir/veiled";
+const TIMEOUT: Duration = Duration::from_secs(30);
+const MAX_BINARY_SIZE: u64 = 10 * 1024 * 1024;
 
 #[derive(Debug)]
 pub struct UpdateResult {
@@ -60,10 +65,19 @@ fn compute_sha256(data: &[u8]) -> String {
     format!("{:x}", Sha256::digest(data))
 }
 
+fn http_agent() -> Agent {
+    Agent::config_builder()
+        .timeout_global(Some(TIMEOUT))
+        .build()
+        .into()
+}
+
 pub fn check() -> Result<UpdateResult, Box<dyn std::error::Error>> {
+    let agent = http_agent();
     let url = format!("https://api.github.com/repos/{REPO}/releases/latest");
 
-    let response: Release = ureq::get(&url)
+    let response: Release = agent
+        .get(&url)
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", "veiled")
         .call()
@@ -101,6 +115,7 @@ pub fn check() -> Result<UpdateResult, Box<dyn std::error::Error>> {
         .ok_or_else(|| format!("no checksum available for this platform ({checksum_name})"))?;
 
     download_and_replace(
+        &agent,
         &binary_asset.browser_download_url,
         &checksum_asset.browser_download_url,
     )?;
@@ -128,13 +143,20 @@ impl TempFile {
 
 impl Drop for TempFile {
     fn drop(&mut self) {
-        if !self.disarmed {
-            let _ = fs::remove_file(&self.path);
+        if !self.disarmed
+            && let Err(e) = fs::remove_file(&self.path)
+        {
+            eprintln!(
+                "{} failed to clean up {}: {e}",
+                style("warning:").yellow().bold(),
+                self.path.display()
+            );
         }
     }
 }
 
 fn download_and_replace(
+    agent: &Agent,
     binary_url: &str,
     checksum_url: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -147,7 +169,8 @@ fn download_and_replace(
 
     let mut temp = TempFile::new(parent.join(".veiled-update"));
 
-    let checksum_content = ureq::get(checksum_url)
+    let checksum_content = agent
+        .get(checksum_url)
         .header("User-Agent", "veiled")
         .call()
         .map_err(|e| format!("failed to download checksum: {e}"))?
@@ -157,11 +180,14 @@ fn download_and_replace(
 
     let expected = parse_checksum(&checksum_content)?;
 
-    let bytes = ureq::get(binary_url)
+    let bytes = agent
+        .get(binary_url)
         .header("User-Agent", "veiled")
         .call()
         .map_err(|e| format!("failed to download update: {e}"))?
         .into_body()
+        .with_config()
+        .limit(MAX_BINARY_SIZE)
         .read_to_vec()
         .map_err(|e| format!("failed to read download: {e}"))?;
 
