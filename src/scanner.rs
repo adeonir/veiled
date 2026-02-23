@@ -52,11 +52,13 @@ pub fn parse_git_ignored(repo_path: &Path, output: &str) -> Vec<PathBuf> {
             continue;
         }
 
-        let rel = Path::new(line);
-        if let Some(first) = rel.components().next() {
-            let name = first.as_os_str().to_string_lossy();
+        let mut prefix = PathBuf::new();
+        for component in Path::new(line).components() {
+            prefix.push(component);
+            let name = component.as_os_str().to_string_lossy();
             if builtins::is_builtin(&name) {
-                dirs.insert(repo_path.join(first));
+                dirs.insert(repo_path.join(&prefix));
+                break;
             }
         }
     }
@@ -211,6 +213,41 @@ mod tests {
         assert!(results.contains(&repo.join("node_modules")));
         assert!(results.contains(&repo.join("target")));
         assert!(results.contains(&repo.join(".next")));
+    }
+
+    #[test]
+    fn parse_git_ignored_finds_nested_builtin_in_monorepo() {
+        let repo = Path::new("/Users/dev/monorepo");
+        let output = "packages/api/node_modules/express/index.js\npackages/api/node_modules/.package-lock.json\n";
+
+        let results = parse_git_ignored(repo, output);
+
+        assert_eq!(results.len(), 1);
+        assert!(results.contains(&repo.join("packages/api/node_modules")));
+    }
+
+    #[test]
+    fn parse_git_ignored_finds_multiple_nested_builtins() {
+        let repo = Path::new("/Users/dev/monorepo");
+        let output = "packages/api/node_modules/pkg/index.js\napps/web/.next/cache/file\napps/web/dist/bundle.js\n";
+
+        let results = parse_git_ignored(repo, output);
+
+        assert_eq!(results.len(), 3);
+        assert!(results.contains(&repo.join("packages/api/node_modules")));
+        assert!(results.contains(&repo.join("apps/web/.next")));
+        assert!(results.contains(&repo.join("apps/web/dist")));
+    }
+
+    #[test]
+    fn parse_git_ignored_deduplicates_nested_builtins() {
+        let repo = Path::new("/Users/dev/monorepo");
+        let output = "packages/api/node_modules/a/index.js\npackages/api/node_modules/b/index.js\n";
+
+        let results = parse_git_ignored(repo, output);
+
+        assert_eq!(results.len(), 1);
+        assert!(results.contains(&repo.join("packages/api/node_modules")));
     }
 
     #[test]
