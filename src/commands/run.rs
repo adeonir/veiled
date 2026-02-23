@@ -120,7 +120,11 @@ fn auto_update() -> Result<(), Box<dyn std::error::Error>> {
     guard.save(&reg)?;
     drop(guard);
 
-    let _ = updater::check();
+    if let Err(e) = updater::check()
+        && verbose()
+    {
+        eprintln!("{} auto-update failed: {e}", style("verbose:").dim());
+    }
 
     Ok(())
 }
