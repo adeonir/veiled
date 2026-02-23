@@ -1,34 +1,47 @@
-use std::fs;
+use std::path::PathBuf;
 
 use console::style;
 
-use crate::{config, registry, tmutil};
+use crate::{config, registry, tmutil, verbose};
 
 pub fn execute(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let expanded = config::expand_tilde(path);
-    let canonical = fs::canonicalize(&expanded)
-        .map_err(|_| format!("{}: no such directory", expanded.display()))?;
 
-    let canonical_str = canonical.to_string_lossy().into_owned();
+    let (lookup_path, exists) = match expanded.canonicalize() {
+        Ok(canonical) => (canonical, true),
+        Err(_) => (normalize_expanded(&expanded), false),
+    };
+
+    let lookup_str = lookup_path.to_string_lossy().into_owned();
 
     let mut guard = registry::Registry::locked()?;
     let mut reg = guard.load()?;
 
-    if !reg.contains(&canonical_str) {
-        return Err(format!("{}: not managed by veiled", canonical.display()).into());
+    if !reg.contains(&lookup_str) {
+        return Err(format!("{}: not managed by veiled", lookup_path.display()).into());
     }
 
-    tmutil::remove_exclusion(&canonical)?;
+    if exists {
+        if let Err(e) = tmutil::remove_exclusion(&lookup_path) {
+            eprintln!(
+                "{} {}: {e}",
+                style("warning:").yellow().bold(),
+                lookup_path.display()
+            );
+        }
+    } else if verbose() {
+        eprintln!(
+            "{} {} no longer exists on disk, skipping tmutil",
+            style("verbose:").dim(),
+            lookup_path.display()
+        );
+    }
 
-    reg.remove(&canonical_str);
+    reg.remove(&lookup_str);
     guard.save(&reg)?;
 
     let mut cfg = config::load()?;
-    if let Some(pos) = cfg
-        .extra_exclusions
-        .iter()
-        .position(|p| p == &canonical_str)
-    {
+    if let Some(pos) = cfg.extra_exclusions.iter().position(|p| p == &lookup_str) {
         cfg.extra_exclusions.remove(pos);
         config::save(&cfg)?;
     }
@@ -36,8 +49,16 @@ pub fn execute(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "{} {}",
         style("Removed").green().bold(),
-        canonical.display()
+        lookup_path.display()
     );
 
     Ok(())
+}
+
+fn normalize_expanded(path: &PathBuf) -> PathBuf {
+    if path.is_absolute() {
+        path.clone()
+    } else {
+        std::env::current_dir().map_or_else(|_| path.clone(), |cwd| cwd.join(path))
+    }
 }

@@ -83,12 +83,12 @@ fn add_help_shows_path_argument() {
 // -- remove command --
 
 #[test]
-fn remove_nonexistent_path_exits_with_error() {
+fn remove_unmanaged_path_shows_not_managed() {
     veiled()
         .args(["remove", "/nonexistent/path/that/does/not/exist"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("error:"));
+        .stderr(predicate::str::contains("not managed by veiled"));
 }
 
 #[test]
