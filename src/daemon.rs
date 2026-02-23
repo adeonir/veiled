@@ -191,4 +191,37 @@ mod tests {
     fn is_installed_returns_result() {
         let _ = is_installed().unwrap();
     }
+
+    #[test]
+    fn domain_target_has_gui_uid_format() {
+        let target = domain_target();
+        assert!(
+            target.starts_with("gui/"),
+            "expected gui/ prefix, got: {target}"
+        );
+        let uid_str = target.strip_prefix("gui/").unwrap();
+        assert!(
+            uid_str.parse::<u32>().is_ok(),
+            "expected numeric uid, got: {uid_str}"
+        );
+    }
+
+    #[test]
+    fn service_target_has_gui_uid_label_format() {
+        let target = service_target();
+        let expected_suffix = format!("/{LABEL}");
+        assert!(
+            target.ends_with(&expected_suffix),
+            "expected {expected_suffix} suffix, got: {target}"
+        );
+        assert!(
+            target.starts_with("gui/"),
+            "expected gui/ prefix, got: {target}"
+        );
+    }
+
+    #[test]
+    fn current_uid_is_nonzero_in_user_context() {
+        assert!(current_uid() > 0);
+    }
 }
