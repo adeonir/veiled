@@ -159,6 +159,8 @@ fn download_and_replace(
         .call()
         .map_err(|e| format!("failed to download checksum: {e}"))?
         .into_body()
+        .with_config()
+        .limit(1024)
         .read_to_string()
         .map_err(|e| format!("failed to read checksum: {e}"))?;
 
