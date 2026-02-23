@@ -37,14 +37,17 @@ pub fn calculate_total_size(paths: &[String]) -> u64 {
 pub fn format_size(bytes: u64) -> String {
     const GB: f64 = 1_073_741_824.0;
     const MB: f64 = 1_048_576.0;
+    const KB: f64 = 1_024.0;
 
     #[allow(clippy::cast_precision_loss)]
     let value = bytes as f64;
 
     if value >= GB {
         format!("{:.1} GB", value / GB)
-    } else {
+    } else if value >= MB {
         format!("{:.1} MB", value / MB)
+    } else {
+        format!("{:.1} KB", value / KB)
     }
 }
 
@@ -134,9 +137,16 @@ mod tests {
     }
 
     #[test]
+    fn format_size_kilobytes() {
+        assert_eq!(format_size(0), "0.0 KB");
+        assert_eq!(format_size(1_024), "1.0 KB");
+        assert_eq!(format_size(524_288), "512.0 KB");
+        assert_eq!(format_size(1_048_575), "1024.0 KB");
+    }
+
+    #[test]
     fn format_size_megabytes() {
-        assert_eq!(format_size(0), "0.0 MB");
-        assert_eq!(format_size(524_288), "0.5 MB");
+        assert_eq!(format_size(1_048_576), "1.0 MB");
         assert_eq!(format_size(268_959_334), "256.5 MB");
     }
 
