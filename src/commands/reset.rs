@@ -2,7 +2,7 @@ use std::io::{self, Write};
 
 use console::style;
 
-use crate::{registry, tmutil};
+use crate::{config, registry, tmutil};
 
 pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut guard = registry::Registry::locked()?;
@@ -47,6 +47,12 @@ pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
 
     let reg = registry::Registry::default();
     guard.save(&reg)?;
+
+    let mut cfg = config::load()?;
+    if !cfg.extra_exclusions.is_empty() {
+        cfg.extra_exclusions.clear();
+        config::save(&cfg)?;
+    }
 
     println!(
         "{} {} {}",

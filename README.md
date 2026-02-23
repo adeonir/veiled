@@ -39,23 +39,28 @@ veiled --verbose <cmd>    # Enable diagnostic output on stderr
 
 ## Configuration
 
-veiled stores its configuration at `~/.config/veiled/config.json`. If the file doesn't exist, it's created with default values on first run.
+veiled stores its configuration at `~/.config/veiled/config.toml`. If the file doesn't exist, it's created with default values on first run. Existing `config.json` files are automatically migrated on first load.
 
-```json
-{
-  "searchPaths": ["~/Projects", "~/Developer"],
-  "extraExclusions": [],
-  "ignorePaths": ["~/.Trash", "~/Library", "~/Downloads"],
-  "autoUpdate": true
-}
+```toml
+# Directories to scan for projects
+search_paths = ["~/Projects", "~/Developer"]
+
+# Additional paths to exclude beyond the built-in list
+extra_exclusions = []
+
+# Paths to skip entirely during scans
+ignore_paths = ["~/.Trash", "~/Library", "~/Downloads"]
+
+# Check for new versions automatically when running a scan
+auto_update = true
 ```
 
-- **searchPaths** -- Directories to scan for projects. Defaults to `["~/Projects", "~/Developer"]`.
-- **extraExclusions** -- Additional directory names to exclude beyond the built-in list. Defaults to `[]`.
-- **ignorePaths** -- Paths to skip entirely during scans. Defaults to `["~/.Trash", "~/Library", "~/Downloads"]`.
-- **autoUpdate** -- Check for new versions automatically when running a scan. Defaults to `true`.
+- **search_paths** -- Directories to scan for projects. Defaults to `["~/Projects", "~/Developer"]`.
+- **extra_exclusions** -- Additional directory names to exclude beyond the built-in list. Defaults to `[]`.
+- **ignore_paths** -- Paths to skip entirely during scans. Defaults to `["~/.Trash", "~/Library", "~/Downloads"]`.
+- **auto_update** -- Check for new versions automatically when running a scan. Defaults to `true`.
 
-**veiled** checks for new versions automatically during scans and updates itself. You can disable this by setting `autoUpdate` to `false` in the configuration, or run `veiled update` manually at any time.
+**veiled** checks for new versions automatically during scans and updates itself. You can disable this by setting `auto_update` to `false` in the configuration, or run `veiled update` manually at any time.
 
 ## Requirements
 
