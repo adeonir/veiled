@@ -83,6 +83,25 @@ fn add_help_shows_path_argument() {
         .stdout(predicate::str::contains("<PATH>").or(predicate::str::contains("path")));
 }
 
+#[test]
+fn add_warns_on_nested_path() {
+    let parent = TempDir::new().unwrap();
+    let child = parent.path().join("nested");
+    std::fs::create_dir(&child).unwrap();
+
+    let (mut cmd1, dir) = veiled();
+    cmd1.args(["add", parent.path().to_str().unwrap()])
+        .assert()
+        .success();
+
+    let mut cmd2 = cargo_bin_cmd!("veiled");
+    cmd2.env("VEILED_CONFIG_DIR", dir.path());
+    cmd2.args(["add", child.to_str().unwrap()])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("already covered by"));
+}
+
 // -- remove command --
 
 #[test]

@@ -15,6 +15,8 @@ pub fn execute(path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     let canonical_str = canonical.to_string_lossy().into_owned();
 
+    tmutil::add_exclusion(&canonical)?;
+
     let mut cfg_guard = config::Config::locked()?;
     let mut cfg = cfg_guard.load()?;
     if !cfg.extra_exclusions.contains(&canonical_str) {
@@ -22,10 +24,21 @@ pub fn execute(path: &str) -> Result<(), Box<dyn std::error::Error>> {
         cfg_guard.save(&cfg)?;
     }
 
-    tmutil::add_exclusion(&canonical)?;
-
     let mut guard = registry::Registry::locked()?;
     let mut reg = guard.load()?;
+
+    for entry in reg.list() {
+        if canonical_str != *entry && canonical_str.starts_with(&format!("{entry}/")) {
+            eprintln!(
+                "{} {} is already covered by {}",
+                style("warning:").yellow().bold(),
+                canonical.display(),
+                entry
+            );
+            break;
+        }
+    }
+
     reg.add(&canonical_str);
     guard.save(&reg)?;
 
