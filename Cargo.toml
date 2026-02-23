@@ -11,21 +11,21 @@ categories = ["command-line-utilities"]
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
-console = "0.15"
+console = "0.16"
 dirs = "6.0"
 fs2 = "0.4"
-indicatif = "0.17"
+indicatif = "0.18"
 serde = { version = "1.0", features = ["derive"] }
 semver = "1.0"
 sha2 = "0.10"
 serde_json = "1.0"
-toml = "0.8"
+toml = "1.0"
 ureq = { version = "3", features = ["json"] }
 
 [dev-dependencies]
-assert_cmd = "2.0"
+assert_cmd = "2.1"
 predicates = "3"
-tempfile = "3.15"
+tempfile = "3.25"
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
