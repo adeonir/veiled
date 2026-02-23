@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use console::style;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
     pub search_paths: Vec<String>,
@@ -77,6 +77,32 @@ pub fn expand_tilde(path: &str) -> PathBuf {
     PathBuf::from(path)
 }
 
+pub fn collapse_tilde(path: &str) -> String {
+    if let Some(home) = dirs::home_dir() {
+        let home_str = home.to_string_lossy();
+        if path == home_str {
+            return "~".to_string();
+        }
+        let prefix = format!("{home_str}/");
+        if let Some(rest) = path.strip_prefix(&prefix) {
+            return format!("~/{rest}");
+        }
+    }
+    path.to_string()
+}
+
+fn collapse_paths(config: &mut Config) {
+    for path in &mut config.search_paths {
+        *path = collapse_tilde(path);
+    }
+    for path in &mut config.extra_exclusions {
+        *path = collapse_tilde(path);
+    }
+    for path in &mut config.ignore_paths {
+        *path = collapse_tilde(path);
+    }
+}
+
 fn expand_paths(config: &mut Config) {
     for path in &mut config.search_paths {
         *path = expand_tilde(path).to_string_lossy().into_owned();
@@ -106,7 +132,9 @@ pub fn save_to(config: &Config, path: &Path) -> Result<(), Box<dyn std::error::E
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(path, toml::to_string_pretty(config)?)?;
+    let mut collapsed = config.clone();
+    collapse_paths(&mut collapsed);
+    fs::write(path, toml::to_string_pretty(&collapsed)?)?;
     Ok(())
 }
 
@@ -311,6 +339,58 @@ mod tests {
         assert_eq!(config.search_paths.len(), 1);
         assert!(!config.auto_update);
         assert_eq!(config.extra_exclusions.len(), 1);
+    }
+
+    #[test]
+    fn collapse_tilde_replaces_home_prefix() {
+        let home = dirs::home_dir().unwrap().to_string_lossy().into_owned();
+        let path = format!("{home}/Projects/app");
+
+        assert_eq!(collapse_tilde(&path), "~/Projects/app");
+    }
+
+    #[test]
+    fn collapse_tilde_handles_bare_home() {
+        let home = dirs::home_dir().unwrap().to_string_lossy().into_owned();
+
+        assert_eq!(collapse_tilde(&home), "~");
+    }
+
+    #[test]
+    fn collapse_tilde_leaves_non_home_paths_unchanged() {
+        assert_eq!(collapse_tilde("/usr/local/bin"), "/usr/local/bin");
+    }
+
+    #[test]
+    fn save_preserves_tilde_notation() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("config.toml");
+        let home = dirs::home_dir().unwrap().to_string_lossy().into_owned();
+
+        let mut config = Config::default();
+        config.search_paths = vec![format!("{home}/Projects")];
+        save_to(&config, &path).unwrap();
+
+        let content = fs::read_to_string(&path).unwrap();
+        assert!(content.contains("~/Projects"));
+        assert!(!content.contains(&home));
+    }
+
+    #[test]
+    fn save_and_load_roundtrip_preserves_tilde() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("config.toml");
+        let home = dirs::home_dir().unwrap().to_string_lossy().into_owned();
+
+        let mut config = Config::default();
+        config.extra_exclusions = vec![format!("{home}/cache")];
+        save_to(&config, &path).unwrap();
+
+        let content = fs::read_to_string(&path).unwrap();
+        assert!(content.contains("~/cache"));
+
+        let loaded = load_from(&path).unwrap();
+        assert_eq!(loaded.extra_exclusions[0], format!("{home}/cache"));
     }
 
     #[test]
