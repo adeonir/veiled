@@ -40,10 +40,11 @@ pub fn execute(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     reg.remove(&lookup_str);
     guard.save(&reg)?;
 
-    let mut cfg = config::load()?;
+    let mut cfg_guard = config::Config::locked()?;
+    let mut cfg = cfg_guard.load()?;
     if let Some(pos) = cfg.extra_exclusions.iter().position(|p| p == &lookup_str) {
         cfg.extra_exclusions.remove(pos);
-        config::save(&cfg)?;
+        cfg_guard.save(&cfg)?;
     }
 
     println!(

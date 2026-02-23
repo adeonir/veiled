@@ -15,10 +15,11 @@ pub fn execute(path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     let canonical_str = canonical.to_string_lossy().into_owned();
 
-    let mut cfg = config::load()?;
+    let mut cfg_guard = config::Config::locked()?;
+    let mut cfg = cfg_guard.load()?;
     if !cfg.extra_exclusions.contains(&canonical_str) {
         cfg.extra_exclusions.push(canonical_str.clone());
-        config::save(&cfg)?;
+        cfg_guard.save(&cfg)?;
     }
 
     tmutil::add_exclusion(&canonical)?;

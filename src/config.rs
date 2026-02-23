@@ -1,7 +1,9 @@
 use std::fs;
+use std::io::{Read as _, Seek, Write as _};
 use std::path::{Path, PathBuf};
 
 use console::style;
+use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -179,6 +181,91 @@ pub fn load_from(path: &Path) -> Result<Config, Box<dyn std::error::Error>> {
 
     expand_paths(&mut config);
     Ok(config)
+}
+
+pub struct LockedConfig {
+    file: fs::File,
+    path: PathBuf,
+}
+
+impl LockedConfig {
+    fn acquire(path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(path)?;
+        file.lock_exclusive()?;
+        Ok(Self {
+            file,
+            path: path.to_path_buf(),
+        })
+    }
+
+    pub fn load(&mut self) -> Result<Config, Box<dyn std::error::Error>> {
+        self.file.rewind()?;
+        let metadata = self.file.metadata()?;
+
+        if metadata.len() == 0 {
+            if let Some(parent) = self.path.parent() {
+                let json_path = parent.join("config.json");
+                if json_path.exists() {
+                    let content = fs::read_to_string(&json_path)?;
+                    let legacy: LegacyConfig = serde_json::from_str(&content).unwrap_or_default();
+                    let config: Config = legacy.into();
+                    self.save(&config)?;
+                    fs::remove_file(&json_path)?;
+                    let mut expanded = config;
+                    expand_paths(&mut expanded);
+                    return Ok(expanded);
+                }
+            }
+            let mut config = Config::default();
+            expand_paths(&mut config);
+            return Ok(config);
+        }
+
+        let mut content = String::new();
+        self.file.read_to_string(&mut content)?;
+        let mut config: Config = match toml::from_str(&content) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!(
+                    "{} failed to parse {}: {e}",
+                    style("warning:").yellow().bold(),
+                    self.path.display()
+                );
+                Config::default()
+            }
+        };
+        expand_paths(&mut config);
+        Ok(config)
+    }
+
+    pub fn save(&mut self, config: &Config) -> Result<(), Box<dyn std::error::Error>> {
+        let mut collapsed = config.clone();
+        collapse_paths(&mut collapsed);
+        let content = toml::to_string_pretty(&collapsed)?;
+        self.file.set_len(0)?;
+        self.file.rewind()?;
+        self.file.write_all(content.as_bytes())?;
+        Ok(())
+    }
+}
+
+impl Config {
+    pub fn locked() -> Result<LockedConfig, Box<dyn std::error::Error>> {
+        LockedConfig::acquire(&config_path()?)
+    }
+
+    #[cfg(test)]
+    pub fn locked_at(path: &Path) -> Result<LockedConfig, Box<dyn std::error::Error>> {
+        LockedConfig::acquire(path)
+    }
 }
 
 #[cfg(test)]
@@ -405,5 +492,73 @@ mod tests {
 
         assert!(json_path.exists());
         assert!(config.auto_update);
+    }
+
+    #[test]
+    fn locked_load_save_roundtrip() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("config.toml");
+
+        let mut guard = Config::locked_at(&path).unwrap();
+        let mut config = guard.load().unwrap();
+        config.auto_update = false;
+        config.extra_exclusions = vec!["/Users/dev/cache".to_string()];
+        guard.save(&config).unwrap();
+        drop(guard);
+
+        let mut guard = Config::locked_at(&path).unwrap();
+        let loaded = guard.load().unwrap();
+
+        assert!(!loaded.auto_update);
+        assert_eq!(loaded.extra_exclusions.len(), 1);
+    }
+
+    #[test]
+    fn locked_creates_defaults_when_empty() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("config.toml");
+
+        let mut guard = Config::locked_at(&path).unwrap();
+        let config = guard.load().unwrap();
+
+        assert_eq!(config.search_paths.len(), 2);
+        assert!(config.auto_update);
+    }
+
+    #[test]
+    fn locked_handles_malformed_toml() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("config.toml");
+
+        fs::write(&path, "{{invalid toml").unwrap();
+
+        let mut guard = Config::locked_at(&path).unwrap();
+        let config = guard.load().unwrap();
+
+        assert_eq!(config.search_paths.len(), 2);
+        assert!(config.auto_update);
+    }
+
+    #[test]
+    fn locked_migrates_json_to_toml() {
+        let dir = TempDir::new().unwrap();
+        let json_path = dir.path().join("config.json");
+        let toml_path = dir.path().join("config.toml");
+
+        let json = r#"{
+            "searchPaths": ["~/Code"],
+            "extraExclusions": ["/tmp/cache"],
+            "ignorePaths": ["~/Library"],
+            "autoUpdate": false
+        }"#;
+        fs::write(&json_path, json).unwrap();
+
+        let mut guard = Config::locked_at(&toml_path).unwrap();
+        let config = guard.load().unwrap();
+
+        assert!(!json_path.exists());
+        assert_eq!(config.search_paths.len(), 1);
+        assert!(!config.auto_update);
+        assert_eq!(config.extra_exclusions.len(), 1);
     }
 }
