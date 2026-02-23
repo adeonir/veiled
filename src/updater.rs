@@ -112,11 +112,25 @@ pub fn check() -> Result<UpdateResult, Box<dyn std::error::Error>> {
     })
 }
 
-struct TempFile(PathBuf);
+struct TempFile {
+    path: PathBuf,
+    disarmed: bool,
+}
+
+impl TempFile {
+    fn new(path: PathBuf) -> Self {
+        Self {
+            path,
+            disarmed: false,
+        }
+    }
+}
 
 impl Drop for TempFile {
     fn drop(&mut self) {
-        let _ = fs::remove_file(&self.0);
+        if !self.disarmed {
+            let _ = fs::remove_file(&self.path);
+        }
     }
 }
 
@@ -131,7 +145,7 @@ fn download_and_replace(
         .parent()
         .ok_or("failed to resolve binary directory")?;
 
-    let temp = TempFile(parent.join(".veiled-update"));
+    let mut temp = TempFile::new(parent.join(".veiled-update"));
 
     let checksum_content = ureq::get(checksum_url)
         .header("User-Agent", "veiled")
@@ -157,12 +171,11 @@ fn download_and_replace(
         return Err(format!("checksum mismatch: expected {expected}, got {actual}").into());
     }
 
-    fs::write(&temp.0, &bytes)?;
-    fs::set_permissions(&temp.0, fs::Permissions::from_mode(0o755))?;
-    fs::rename(&temp.0, &binary_path)?;
+    fs::write(&temp.path, &bytes)?;
+    fs::set_permissions(&temp.path, fs::Permissions::from_mode(0o755))?;
+    fs::rename(&temp.path, &binary_path)?;
 
-    // Rename succeeded, prevent Drop from removing the file
-    std::mem::forget(temp);
+    temp.disarmed = true;
 
     Ok(())
 }
@@ -331,9 +344,22 @@ mod tests {
         fs::write(&path, b"data").unwrap();
         assert!(path.exists());
 
-        let temp = TempFile(path.clone());
+        let temp = TempFile::new(path.clone());
         drop(temp);
 
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn temp_file_disarmed_skips_cleanup() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("temp-binary");
+        fs::write(&path, b"data").unwrap();
+
+        let mut temp = TempFile::new(path.clone());
+        temp.disarmed = true;
+        drop(temp);
+
+        assert!(path.exists());
     }
 }
