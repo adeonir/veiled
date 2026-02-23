@@ -36,34 +36,57 @@ pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut removed = 0u32;
+    let mut failed: Vec<String> = Vec::new();
 
     for path in &paths {
         if let Err(e) = tmutil::remove_exclusion(path.as_ref()) {
             eprintln!("{} {path}: {e}", style("warning:").yellow().bold(),);
+            failed.push(path.clone());
         } else {
             removed += 1;
         }
     }
 
-    let reg = registry::Registry::default();
+    let reg = registry::Registry {
+        paths: failed.clone(),
+        ..registry::Registry::default()
+    };
     guard.save(&reg)?;
 
-    let mut cfg = config::load()?;
+    let mut cfg_guard = config::Config::locked()?;
+    let mut cfg = cfg_guard.load()?;
     if !cfg.extra_exclusions.is_empty() {
-        cfg.extra_exclusions.clear();
-        config::save(&cfg)?;
+        let before = cfg.extra_exclusions.len();
+        cfg.extra_exclusions.retain(|p| failed.contains(p));
+        if cfg.extra_exclusions.len() < before {
+            cfg_guard.save(&cfg)?;
+        }
     }
 
-    println!(
-        "{} {} {}",
-        style("Removed").green().bold(),
-        removed,
-        if removed == 1 {
-            "exclusion"
-        } else {
-            "exclusions"
-        }
-    );
+    if failed.is_empty() {
+        println!(
+            "{} {} {}",
+            style("Removed").green().bold(),
+            removed,
+            if removed == 1 {
+                "exclusion"
+            } else {
+                "exclusions"
+            }
+        );
+    } else {
+        println!(
+            "{} {} {}, {} failed",
+            style("Removed").green().bold(),
+            removed,
+            if removed == 1 {
+                "exclusion"
+            } else {
+                "exclusions"
+            },
+            failed.len()
+        );
+    }
 
     Ok(())
 }

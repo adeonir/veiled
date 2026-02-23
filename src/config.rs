@@ -135,10 +135,6 @@ fn migrate_json(json_path: &Path, toml_path: &Path) -> Result<(), Box<dyn std::e
     Ok(())
 }
 
-pub fn save(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
-    save_to(config, &config_path()?)
-}
-
 pub fn save_to(config: &Config, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
