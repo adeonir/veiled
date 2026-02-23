@@ -150,6 +150,22 @@ fn kill_service() -> Result<(), String> {
     }
 }
 
+pub fn restart() -> Result<bool, Box<dyn std::error::Error>> {
+    if !is_installed()? {
+        return Ok(false);
+    }
+
+    uninstall()?;
+
+    let binary_path =
+        std::env::current_exe().map_err(|e| format!("failed to resolve binary path: {e}"))?;
+
+    let plist = generate_plist(&binary_path)?;
+    install(&plist)?;
+
+    Ok(true)
+}
+
 pub fn uninstall() -> Result<(), Box<dyn std::error::Error>> {
     let path = plist_path()?;
 

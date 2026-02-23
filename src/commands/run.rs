@@ -5,7 +5,7 @@ use indicatif::ProgressBar;
 
 use std::path::Path;
 
-use crate::{config, disksize, registry, scanner, tmutil, updater, verbose};
+use crate::{config, daemon, disksize, registry, scanner, tmutil, updater, verbose};
 
 const UPDATE_COOLDOWN_SECS: i64 = 86_400; // 24 hours
 
@@ -121,10 +121,18 @@ fn auto_update() -> Result<(), Box<dyn std::error::Error>> {
     guard.save(&reg)?;
     drop(guard);
 
-    if let Err(e) = updater::check()
-        && verbose()
-    {
-        eprintln!("{} auto-update failed: {e}", style("verbose:").dim());
+    match updater::check() {
+        Ok(result) if result.updated => {
+            if let Err(e) = daemon::restart()
+                && verbose()
+            {
+                eprintln!("{} daemon restart failed: {e}", style("verbose:").dim());
+            }
+        }
+        Err(e) if verbose() => {
+            eprintln!("{} auto-update failed: {e}", style("verbose:").dim());
+        }
+        _ => {}
     }
 
     Ok(())

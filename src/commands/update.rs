@@ -19,17 +19,7 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
             result.new_version
         );
 
-        let was_installed = daemon::is_installed()?;
-
-        if was_installed {
-            daemon::uninstall()?;
-
-            let binary_path = std::env::current_exe()
-                .map_err(|e| format!("failed to resolve binary path: {e}"))?;
-
-            let plist = daemon::generate_plist(&binary_path)?;
-            daemon::install(&plist)?;
-
+        if daemon::restart()? {
             println!("{}", style("Daemon restarted.").green().bold());
         }
     } else {
