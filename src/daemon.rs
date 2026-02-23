@@ -29,9 +29,17 @@ fn log_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
     Ok(home.join(".config/veiled"))
 }
 
+fn escape_xml(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
+}
+
 pub fn generate_plist(binary_path: &Path) -> Result<String, Box<dyn std::error::Error>> {
-    let binary = binary_path.display();
-    let log = log_dir()?.display().to_string();
+    let binary = escape_xml(&binary_path.display().to_string());
+    let log = escape_xml(&log_dir()?.display().to_string());
 
     Ok(format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -223,5 +231,38 @@ mod tests {
     #[test]
     fn current_uid_is_nonzero_in_user_context() {
         assert!(current_uid() > 0);
+    }
+
+    #[test]
+    fn escape_xml_replaces_ampersand() {
+        assert_eq!(escape_xml("a&b"), "a&amp;b");
+    }
+
+    #[test]
+    fn escape_xml_replaces_angle_brackets() {
+        assert_eq!(escape_xml("a<b>c"), "a&lt;b&gt;c");
+    }
+
+    #[test]
+    fn escape_xml_replaces_quotes() {
+        assert_eq!(escape_xml(r#"a"b'c"#), "a&quot;b&apos;c");
+    }
+
+    #[test]
+    fn escape_xml_handles_multiple_special_chars() {
+        assert_eq!(escape_xml(r#"<a&b>"c'd"#), "&lt;a&amp;b&gt;&quot;c&apos;d");
+    }
+
+    #[test]
+    fn escape_xml_leaves_normal_string_unchanged() {
+        let path = "/usr/local/bin/veiled";
+        assert_eq!(escape_xml(path), path);
+    }
+
+    #[test]
+    fn generate_plist_escapes_special_chars_in_path() {
+        let plist = generate_plist(Path::new("/opt/my&app/veiled")).unwrap();
+        assert!(plist.contains("<string>/opt/my&amp;app/veiled</string>"));
+        assert!(!plist.contains("<string>/opt/my&app/veiled</string>"));
     }
 }
