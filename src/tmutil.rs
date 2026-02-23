@@ -92,7 +92,10 @@ pub fn is_excluded(path: &Path) -> Result<bool, String> {
 
 // tmutil outputs `[Excluded] /path` or `[NotExcluded] /path`
 fn parse_is_excluded(output: &str) -> bool {
-    output.contains("[Excluded]") && !output.contains("[NotExcluded]")
+    output
+        .lines()
+        .find(|line| !line.is_empty())
+        .is_some_and(|line| line.starts_with("[Excluded]"))
 }
 
 #[cfg(test)]
@@ -142,6 +145,15 @@ mod tests {
             "[NotExcluded]   /Users/dev/project/src\n[NotExcluded]   /Users/dev/project/docs\n";
         let results = parse_are_excluded(output);
         assert_eq!(results, vec![false, false]);
+    }
+
+    #[test]
+    fn parse_is_excluded_only_checks_first_line() {
+        let output = "[Excluded]      /Users/dev/node_modules\n[NotExcluded]   /Users/dev/src\n";
+        assert!(parse_is_excluded(output));
+
+        let output = "[NotExcluded]   /Users/dev/src\n[Excluded]      /Users/dev/node_modules\n";
+        assert!(!parse_is_excluded(output));
     }
 
     #[test]

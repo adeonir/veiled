@@ -63,6 +63,7 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut excluded = 0u32;
+    let mut added_paths: Vec<String> = Vec::new();
 
     for path in &new_paths {
         if let Err(e) = tmutil::add_exclusion(path) {
@@ -73,11 +74,14 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
             );
             continue;
         }
-        reg.add(&path.to_string_lossy());
+        let s = path.to_string_lossy().into_owned();
+        reg.add(&s);
+        added_paths.push(s);
         excluded += 1;
     }
 
-    reg.saved_bytes = Some(disksize::calculate_total_size(reg.list()));
+    let new_size = disksize::calculate_total_size(&added_paths);
+    reg.saved_bytes = Some(reg.saved_bytes.unwrap_or(0) + new_size);
     guard.save(&reg)?;
 
     println!(
