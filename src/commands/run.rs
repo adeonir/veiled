@@ -43,6 +43,11 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
         reg.remove(entry);
     }
 
+    if !stale.is_empty() {
+        let remaining = disksize::calculate_total_size(reg.list());
+        reg.saved_bytes = if remaining > 0 { Some(remaining) } else { None };
+    }
+
     if re_applied > 0 {
         println!(
             "{} {} lost {}",
