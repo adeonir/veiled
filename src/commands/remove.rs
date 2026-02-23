@@ -9,7 +9,7 @@ pub fn execute(path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     let (lookup_path, exists) = match expanded.canonicalize() {
         Ok(canonical) => (canonical, true),
-        Err(_) => (normalize_expanded(&expanded), false),
+        Err(_) => (normalize_expanded(&expanded)?, false),
     };
 
     let lookup_str = lookup_path.to_string_lossy().into_owned();
@@ -56,10 +56,12 @@ pub fn execute(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn normalize_expanded(path: &PathBuf) -> PathBuf {
+fn normalize_expanded(path: &PathBuf) -> Result<PathBuf, Box<dyn std::error::Error>> {
     if path.is_absolute() {
-        path.clone()
+        Ok(path.clone())
     } else {
-        std::env::current_dir().map_or_else(|_| path.clone(), |cwd| cwd.join(path))
+        let cwd = std::env::current_dir()
+            .map_err(|e| format!("could not determine current directory: {e}"))?;
+        Ok(cwd.join(path))
     }
 }

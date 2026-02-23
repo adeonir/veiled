@@ -118,7 +118,17 @@ fn expand_paths(config: &mut Config) {
 
 fn migrate_json(json_path: &Path, toml_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let content = fs::read_to_string(json_path)?;
-    let legacy: LegacyConfig = serde_json::from_str(&content).unwrap_or_default();
+    let legacy: LegacyConfig = match serde_json::from_str(&content) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!(
+                "{} failed to parse {}: {e}",
+                style("warning:").yellow().bold(),
+                json_path.display()
+            );
+            return Ok(());
+        }
+    };
     let config: Config = legacy.into();
     save_to(&config, toml_path)?;
     fs::remove_file(json_path)?;
@@ -215,13 +225,23 @@ impl LockedConfig {
                 let json_path = parent.join("config.json");
                 if json_path.exists() {
                     let content = fs::read_to_string(&json_path)?;
-                    let legacy: LegacyConfig = serde_json::from_str(&content).unwrap_or_default();
-                    let config: Config = legacy.into();
-                    self.save(&config)?;
-                    fs::remove_file(&json_path)?;
-                    let mut expanded = config;
-                    expand_paths(&mut expanded);
-                    return Ok(expanded);
+                    match serde_json::from_str::<LegacyConfig>(&content) {
+                        Ok(legacy) => {
+                            let config: Config = legacy.into();
+                            self.save(&config)?;
+                            fs::remove_file(&json_path)?;
+                            let mut expanded = config;
+                            expand_paths(&mut expanded);
+                            return Ok(expanded);
+                        }
+                        Err(e) => {
+                            eprintln!(
+                                "{} failed to parse {}: {e}",
+                                style("warning:").yellow().bold(),
+                                json_path.display()
+                            );
+                        }
+                    }
                 }
             }
             let mut config = Config::default();
@@ -560,5 +580,36 @@ mod tests {
         assert_eq!(config.search_paths.len(), 1);
         assert!(!config.auto_update);
         assert_eq!(config.extra_exclusions.len(), 1);
+    }
+
+    #[test]
+    fn malformed_json_preserved_on_migration() {
+        let dir = TempDir::new().unwrap();
+        let json_path = dir.path().join("config.json");
+        let toml_path = dir.path().join("config.toml");
+
+        fs::write(&json_path, "{{not valid json").unwrap();
+
+        let config = load_from(&toml_path).unwrap();
+
+        assert!(json_path.exists());
+        assert_eq!(config.search_paths.len(), 2);
+        assert!(config.auto_update);
+    }
+
+    #[test]
+    fn locked_malformed_json_preserved_on_migration() {
+        let dir = TempDir::new().unwrap();
+        let json_path = dir.path().join("config.json");
+        let toml_path = dir.path().join("config.toml");
+
+        fs::write(&json_path, "{{not valid json").unwrap();
+
+        let mut guard = Config::locked_at(&toml_path).unwrap();
+        let config = guard.load().unwrap();
+
+        assert!(json_path.exists());
+        assert_eq!(config.search_paths.len(), 2);
+        assert!(config.auto_update);
     }
 }
