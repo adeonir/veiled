@@ -117,17 +117,48 @@ pub fn kickstart() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn uninstall() -> Result<(), Box<dyn std::error::Error>> {
-    let path = plist_path()?;
-
+fn bootout() -> Result<(), String> {
     let output = Command::new("launchctl")
         .args(["bootout", &service_target()])
         .output()
         .map_err(|e| format!("failed to run launchctl: {e}"))?;
 
-    if !output.status.success() {
+    if output.status.success() {
+        return Ok(());
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    if stderr.contains("Could not find service") {
+        return Ok(());
+    }
+
+    Err(stderr.trim().to_string())
+}
+
+fn kill_service() -> Result<(), String> {
+    let output = Command::new("launchctl")
+        .args(["kill", "SIGTERM", &service_target()])
+        .output()
+        .map_err(|e| format!("failed to run launchctl: {e}"))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        eprintln!("warning: launchctl bootout failed: {stderr}");
+        Err(stderr.trim().to_string())
+    }
+}
+
+pub fn uninstall() -> Result<(), Box<dyn std::error::Error>> {
+    let path = plist_path()?;
+
+    if let Err(reason) = bootout() {
+        let _ = kill_service();
+
+        if let Err(retry) = bootout() {
+            return Err(format!("failed to stop service: {reason} (retry: {retry})").into());
+        }
     }
 
     fs::remove_file(&path)?;
