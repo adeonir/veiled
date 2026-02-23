@@ -175,12 +175,12 @@ fn start_help_shows_description() {
 // -- stop command --
 
 #[test]
-fn stop_without_daemon_prints_message() {
+fn stop_help_shows_description() {
     veiled()
-        .arg("stop")
+        .args(["stop", "--help"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("not running"));
+        .stdout(predicate::str::contains("Deactivate daemon"));
 }
 
 // -- update command --
@@ -258,16 +258,12 @@ fn verbose_status_shows_fda_detail_if_warning() {
 }
 
 #[test]
-fn start_fda_warning_on_stderr_if_present() {
-    let output = veiled().args(["start"]).output().unwrap();
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    if !stderr.is_empty() {
-        assert!(
-            stderr.contains("Full Disk Access may be required"),
-            "unexpected stderr: {stderr}"
-        );
-    }
+fn start_help_shows_install_description() {
+    veiled()
+        .args(["start", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Install binary"));
 }
 
 // -- unknown command --

@@ -1,12 +1,17 @@
 /// Known development artifact directory names that should be excluded from Time Machine backups.
+///
+/// Some names are generic and may match non-artifact directories. These are
+/// annotated with "generic" below. Veiled only matches top-level directory
+/// names inside search paths, which limits false positives to projects that
+/// use these names for committed source code.
 const BUILTIN_DIRS: &[&str] = &[
     // JavaScript / TypeScript
     "node_modules",
     ".next",
     ".nuxt",
-    "dist",
-    "build",
-    "out",
+    "dist",  // generic: may match non-JS distribution directories
+    "build", // generic: may match C/Make or other compiled output with source
+    "out",   // generic: may match custom output directories with committed files
     ".turbo",
     ".cache",
     ".vite",
@@ -22,16 +27,16 @@ const BUILTIN_DIRS: &[&str] = &[
     ".mypy_cache",
     ".pytest_cache",
     // Rust / Java / JVM
-    "target",
+    "target", // generic: Rust/Cargo convention, but some projects use for other purposes
     ".gradle",
     // Go / PHP
-    "vendor",
+    "vendor", // generic: Go vendor may contain committed source code
     // iOS / Swift
     "Pods",
     ".build",
     // IDEs and misc
     ".idea",
-    "tmp",
+    "tmp", // generic: may match project-level temp directories with relevant data
     ".tmp",
 ];
 
