@@ -139,10 +139,13 @@ pub fn traverse(search_paths: &[String], ignore_paths: &[String]) -> Vec<PathBuf
         };
 
         for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_dir() {
+            let Ok(ft) = entry.file_type() else {
+                continue;
+            };
+            if !ft.is_dir() || ft.is_symlink() {
                 continue;
             }
+            let path = entry.path();
             if let Some(name) = path.file_name()
                 && builtins::is_builtin(&name.to_string_lossy())
             {
@@ -327,6 +330,22 @@ mod tests {
         let results = traverse(&["/nonexistent/search/path".to_string()], &[]);
 
         assert!(results.is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn traverse_skips_symlink_loops() {
+        let dir = TempDir::new().unwrap();
+        let project = dir.path().join("project");
+        fs::create_dir(&project).unwrap();
+        fs::create_dir(project.join("node_modules")).unwrap();
+
+        std::os::unix::fs::symlink(&project, project.join("link")).unwrap();
+
+        let results = traverse(&[dir.path().to_string_lossy().into_owned()], &[]);
+
+        assert_eq!(results.len(), 1);
+        assert!(results[0].ends_with("node_modules"));
     }
 
     #[test]

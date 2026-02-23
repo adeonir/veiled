@@ -9,13 +9,20 @@ pub fn dir_size(path: &Path) -> u64 {
     let mut total = 0u64;
 
     for entry in entries.flatten() {
-        let Ok(metadata) = entry.metadata() else {
+        let Ok(ft) = entry.file_type() else {
             continue;
         };
 
-        if metadata.is_dir() {
+        if ft.is_symlink() {
+            continue;
+        }
+
+        if ft.is_dir() {
             total += dir_size(&entry.path());
         } else {
+            let Ok(metadata) = entry.metadata() else {
+                continue;
+            };
             total += metadata.len();
         }
     }
@@ -111,6 +118,19 @@ mod tests {
             "/nonexistent/two".to_string(),
         ];
         assert_eq!(calculate_total_size(&paths), 0);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn dir_size_skips_symlinks() {
+        let dir = TempDir::new().unwrap();
+        let sub = dir.path().join("sub");
+        fs::create_dir(&sub).unwrap();
+        let mut f = File::create(sub.join("file.txt")).unwrap();
+        f.write_all(b"hello").unwrap();
+
+        std::os::unix::fs::symlink(dir.path(), dir.path().join("loop")).unwrap();
+        assert_eq!(dir_size(dir.path()), 5);
     }
 
     #[test]
