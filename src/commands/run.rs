@@ -20,8 +20,13 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     let mut reg = guard.load()?;
 
     let mut re_applied = 0u32;
+    let mut stale: Vec<String> = Vec::new();
     for entry in reg.list().to_vec() {
         let p = Path::new(&entry);
+        if !p.exists() {
+            stale.push(entry);
+            continue;
+        }
         if p.is_dir() && !tmutil::is_excluded(p).unwrap_or(true) {
             if let Err(e) = tmutil::add_exclusion(p) {
                 eprintln!("{} {entry}: {e}", style("warning:").yellow().bold(),);
@@ -29,6 +34,13 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
                 re_applied += 1;
             }
         }
+    }
+
+    for entry in &stale {
+        if verbose() {
+            eprintln!("{} pruning stale entry: {entry}", style("verbose:").dim(),);
+        }
+        reg.remove(entry);
     }
 
     if re_applied > 0 {
