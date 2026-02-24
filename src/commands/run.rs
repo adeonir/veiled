@@ -186,7 +186,7 @@ fn now_epoch() -> i64 {
 
 fn auto_update() -> Result<(), Box<dyn std::error::Error>> {
     let mut guard = registry::Registry::locked()?;
-    let mut reg = guard.load()?;
+    let reg = guard.load()?;
 
     let now = now_epoch();
 
@@ -204,12 +204,20 @@ fn auto_update() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    reg.last_update_check = Some(now);
-    guard.save(&reg)?;
     drop(guard);
 
-    match updater::check() {
-        Ok(result) if result.updated => {
+    let result = updater::check();
+
+    let mut guard = registry::Registry::locked()?;
+    let mut reg = guard.load()?;
+    if result.is_ok() {
+        reg.last_update_check = Some(now);
+        guard.save(&reg)?;
+    }
+    drop(guard);
+
+    match result {
+        Ok(check_result) if check_result.updated => {
             if let Err(e) = daemon::restart()
                 && verbose()
             {

@@ -28,6 +28,7 @@ xattr = "1.6.1"
 [dev-dependencies]
 assert_cmd = "2.1"
 predicates = "3"
+proptest = "1.6"
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }

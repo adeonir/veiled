@@ -613,3 +613,21 @@ mod tests {
         assert!(config.auto_update);
     }
 }
+
+#[cfg(test)]
+mod fuzz_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn expand_tilde_never_panics(data in "\\PC{0,256}") {
+            let _ = expand_tilde(&data);
+        }
+
+        #[test]
+        fn collapse_tilde_never_panics(data in "\\PC{0,256}") {
+            let _ = collapse_tilde(&data);
+        }
+    }
+}

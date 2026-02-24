@@ -376,3 +376,21 @@ mod tests {
         assert!(validate_download_url("http://github.com/insecure").is_err());
     }
 }
+
+#[cfg(test)]
+mod fuzz_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn parse_checksum_never_panics(data in "\\PC{0,256}") {
+            let _ = parse_checksum(&data);
+        }
+
+        #[test]
+        fn parse_version_never_panics(data in "\\PC{0,64}") {
+            let _ = parse_version(&data);
+        }
+    }
+}

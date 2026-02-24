@@ -14,6 +14,15 @@ pub fn execute(path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     let lookup_str = lookup_path.to_string_lossy().into_owned();
 
+    let mut cfg_guard = config::Config::locked()?;
+    let mut cfg = cfg_guard.load()?;
+    let mut guard = registry::Registry::locked()?;
+    let mut reg = guard.load()?;
+
+    if !reg.contains(&lookup_str) {
+        return Err(format!("{}: not managed by veiled", lookup_path.display()).into());
+    }
+
     if exists {
         if let Err(e) = tmutil::remove_exclusion(&lookup_path) {
             eprintln!(
@@ -30,18 +39,9 @@ pub fn execute(path: &str) -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    let mut cfg_guard = config::Config::locked()?;
-    let mut cfg = cfg_guard.load()?;
     if let Some(pos) = cfg.extra_exclusions.iter().position(|p| p == &lookup_str) {
         cfg.extra_exclusions.remove(pos);
         cfg_guard.save(&cfg)?;
-    }
-
-    let mut guard = registry::Registry::locked()?;
-    let mut reg = guard.load()?;
-
-    if !reg.contains(&lookup_str) {
-        return Err(format!("{}: not managed by veiled", lookup_path.display()).into());
     }
 
     let removed_size = disksize::dir_size(&lookup_path);
@@ -103,5 +103,18 @@ mod tests {
     #[test]
     fn clean_path_stops_at_root() {
         assert_eq!(clean_path(Path::new("/a/../../etc")), Path::new("/etc"));
+    }
+}
+
+#[cfg(test)]
+mod fuzz_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn clean_path_never_panics(data in "\\PC{0,256}") {
+            let _ = clean_path(Path::new(&data));
+        }
     }
 }

@@ -15,15 +15,8 @@ pub fn execute(path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     let canonical_str = canonical.to_string_lossy().into_owned();
 
-    tmutil::add_exclusion(&canonical)?;
-
     let mut cfg_guard = config::Config::locked()?;
     let mut cfg = cfg_guard.load()?;
-    if !cfg.extra_exclusions.contains(&canonical_str) {
-        cfg.extra_exclusions.push(canonical_str.clone());
-        cfg_guard.save(&cfg)?;
-    }
-
     let mut guard = registry::Registry::locked()?;
     let mut reg = guard.load()?;
 
@@ -37,6 +30,13 @@ pub fn execute(path: &str) -> Result<(), Box<dyn std::error::Error>> {
             );
             break;
         }
+    }
+
+    tmutil::add_exclusion(&canonical)?;
+
+    if !cfg.extra_exclusions.contains(&canonical_str) {
+        cfg.extra_exclusions.push(canonical_str.clone());
+        cfg_guard.save(&cfg)?;
     }
 
     reg.add(&canonical_str);

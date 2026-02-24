@@ -6,13 +6,13 @@ use console::style;
 use crate::{config, registry, tmutil};
 
 pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let paths = {
+    let snapshot = {
         let mut guard = registry::Registry::locked()?;
         let reg = guard.load()?;
         reg.list().to_vec()
     };
 
-    if paths.is_empty() {
+    if snapshot.is_empty() {
         println!("{}", style("No exclusions to remove.").dim());
         return Ok(());
     }
@@ -20,8 +20,8 @@ pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
     if !yes {
         print!(
             "Remove {} {}? [y/N] ",
-            paths.len(),
-            if paths.len() == 1 {
+            snapshot.len(),
+            if snapshot.len() == 1 {
                 "exclusion"
             } else {
                 "exclusions"
@@ -38,8 +38,14 @@ pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let (existing, missing): (Vec<_>, Vec<_>) =
-        paths.iter().partition(|p| Path::new(p.as_str()).exists());
+    let mut cfg_guard = config::Config::locked()?;
+    let mut cfg = cfg_guard.load()?;
+    let mut guard = registry::Registry::locked()?;
+    let mut reg = guard.load()?;
+
+    let (existing, missing): (Vec<_>, Vec<_>) = snapshot
+        .iter()
+        .partition(|p| Path::new(p.as_str()).exists());
 
     let existing_paths: Vec<PathBuf> = existing.iter().map(|p| PathBuf::from(p.as_str())).collect();
 
@@ -63,8 +69,6 @@ pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
         removed += existing.len();
     }
 
-    let mut cfg_guard = config::Config::locked()?;
-    let mut cfg = cfg_guard.load()?;
     if !cfg.extra_exclusions.is_empty() {
         let before = cfg.extra_exclusions.len();
         cfg.extra_exclusions.retain(|p| failed.contains(p));
@@ -73,9 +77,11 @@ pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let mut guard = registry::Registry::locked()?;
-    let mut reg = guard.load()?;
-    reg.paths.clone_from(&failed);
+    for path in &snapshot {
+        if !failed.contains(path) {
+            reg.remove(path);
+        }
+    }
     reg.saved_bytes = None;
     guard.save(&reg)?;
 
