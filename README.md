@@ -39,7 +39,7 @@ veiled --verbose <cmd>    # Enable diagnostic output on stderr
 
 ## Configuration
 
-veiled stores its configuration at `~/.config/veiled/config.toml`. If the file doesn't exist, it's created with default values on first run. Existing `config.json` files are automatically migrated on first load.
+veiled stores its configuration at `~/.config/veiled/config.toml`. If the file doesn't exist, it's created with default values on first run.
 
 ```toml
 # Directories to scan for projects
