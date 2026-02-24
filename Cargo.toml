@@ -1,6 +1,6 @@
 [package]
 name = "veiled"
-version = "0.0.9"
+version = "0.0.10"
 edition = "2024"
 description = "Veiled CLI -- A macOS CLI to automatically exclude development artifacts from Time Machine backups"
 license = "MIT"
