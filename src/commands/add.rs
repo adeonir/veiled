@@ -42,7 +42,7 @@ pub fn execute(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     reg.add(&canonical_str);
     guard.save(&reg)?;
 
-    println!("{} {}", style("Added").blue().bold(), canonical.display());
+    println!("{} {}", style("Added:").bold(), canonical.display());
 
     Ok(())
 }

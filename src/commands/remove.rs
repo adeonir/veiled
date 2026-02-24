@@ -52,11 +52,7 @@ pub fn execute(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     reg.remove(&lookup_str);
     guard.save(&reg)?;
 
-    println!(
-        "{} {}",
-        style("Removed").blue().bold(),
-        lookup_path.display()
-    );
+    println!("{} {}", style("Removed:").bold(), lookup_path.display());
 
     Ok(())
 }

@@ -56,6 +56,14 @@ Scanner combines two strategies: `git ls-files --ignored --exclude-standard` for
 
 Data files live in `~/.config/veiled/`: `config.toml` (user settings) and `registry.json` (managed exclusions, cached saved bytes, and last update check timestamp). Both Config and Registry use exclusive file locking and a `load_from`/`save_to` pattern that accepts a `&Path` argument, allowing unit tests to use `tempfile::TempDir` instead of touching the real config directory. Integration tests in `tests/cli.rs` use `assert_cmd` with `cargo_bin_cmd!("veiled")` to run the compiled binary.
 
+## Quality Gates
+
+All three must pass before any change is considered complete:
+
+1. `cargo fmt -- --check`
+2. `cargo clippy -- -D warnings`
+3. `cargo test`
+
 ## Workflow
 
 - Always use the `spec-driven` skill for feature implementation (initialize, plan, tasks, implement, validate)

@@ -15,7 +15,7 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     if result.updated {
         println!(
             "{} {} -> {}",
-            style("Updated").blue().bold(),
+            style("Updated:").bold(),
             result.old_version,
             result.new_version
         );

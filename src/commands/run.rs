@@ -145,7 +145,7 @@ fn print_summary(
     if re_applied > 0 {
         println!(
             "{} {} lost {}",
-            style("Re-applied").blue().bold(),
+            style("Re-applied:").bold(),
             re_applied,
             if re_applied == 1 {
                 "exclusion"
@@ -169,7 +169,7 @@ fn print_summary(
         };
         println!(
             "{} {} new {}{details}",
-            style("Excluded").blue().bold(),
+            style("Excluded:").bold(),
             total_added,
             if total_added == 1 { "path" } else { "paths" },
         );

@@ -82,7 +82,7 @@ pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
     if failed.is_empty() {
         println!(
             "{} {} {}",
-            style("Removed").blue().bold(),
+            style("Removed:").bold(),
             removed,
             if removed == 1 {
                 "exclusion"
@@ -93,7 +93,7 @@ pub fn execute(yes: bool) -> Result<(), Box<dyn std::error::Error>> {
     } else {
         println!(
             "{} {} {}, {} failed",
-            style("Removed").blue().bold(),
+            style("Removed:").bold(),
             removed,
             if removed == 1 {
                 "exclusion"
