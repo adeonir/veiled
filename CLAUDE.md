@@ -29,9 +29,9 @@ src/
   config.rs        # Config load/save from ~/.config/veiled/config.toml with tilde expansion and exclusive file locking
   daemon.rs        # launchd plist generation, install/uninstall/status for the daily agent
   registry.rs      # Tracks managed exclusions in ~/.config/veiled/registry.json (add/remove/list/contains) with exclusive file locking via LockedRegistry
-  disksize.rs      # Iterative directory size calculation and human-readable formatting (KB/MB/GB)
-  scanner.rs       # Scans search paths: git ls-files for repos, directory traversal for non-git dirs, dedup + tmutil filtering
-  tmutil.rs        # Wraps macOS tmutil commands (addexclusion, removeexclusion, isexcluded) with structured results; check_access() probes FDA permissions
+  disksize.rs      # Parallel directory size calculation and human-readable formatting (KB/MB/GB)
+  scanner.rs       # Scans search paths: parallel git ls-files for repos, directory traversal for non-git dirs, dedup via builtins
+  tmutil.rs        # Manages Time Machine exclusions via xattr (add/remove/check); check_access() probes FDA permissions via tmutil process
   updater.rs       # GitHub Releases version check, binary download with SHA-256 checksum validation and atomic replacement
   commands/
     mod.rs          # Re-exports all command modules
@@ -50,9 +50,9 @@ tests/
 
 The CLI uses clap derive macros. Each subcommand is a variant in `Commands` enum (cli.rs), and `main.rs` matches on it to call the corresponding `commands::{name}::execute()` function. Doc comments on enum variants become the `--help` descriptions. The top-level `about` text is derived from the Cargo.toml `description` field at compile time. All commands return `Result<(), Box<dyn std::error::Error>>`; main catches errors, prints them in red via `console::style`, and exits non-zero.
 
-Config uses `#[serde(default)]` with TOML format and `snake_case` keys. Partial configs fill missing fields from defaults. All path fields undergo tilde expansion after loading (tilde notation is preserved on save). Legacy `config.json` files are automatically migrated to `config.toml` on first load. The tmutil module isolates stdout parsing from command execution so parsing logic is testable cross-platform.
+Config uses `#[serde(default)]` with TOML format and `snake_case` keys. Partial configs fill missing fields from defaults. All path fields undergo tilde expansion after loading (tilde notation is preserved on save). Legacy `config.json` files are automatically migrated to `config.toml` on first load. The tmutil module uses the `xattr` crate to directly read/write the `com.apple.metadata:com_apple_backup_excludeItem` extended attribute instead of spawning tmutil processes, making add/remove/check operations near-instant.
 
-Scanner combines two strategies: `git ls-files --ignored --exclude-standard` for git repos, and direct directory traversal for non-git dirs. Both filter through `builtins::is_builtin()`. Results are deduplicated and filtered against `tmutil::is_excluded` to skip already-excluded paths. When `--verbose` is active, scanner logs git failures, skipped directories, and empty results to stderr.
+Scanner combines two strategies: `git ls-files --ignored --exclude-standard` for git repos, and direct directory traversal for non-git dirs. Both filter through `builtins::is_builtin()`. Git repos are scanned in parallel (8 thread chunks). Results are deduplicated. When `--verbose` is active, scanner logs git failures, skipped directories, and empty results to stderr.
 
 Data files live in `~/.config/veiled/`: `config.toml` (user settings) and `registry.json` (managed exclusions, cached saved bytes, and last update check timestamp). Both Config and Registry use exclusive file locking and a `load_from`/`save_to` pattern that accepts a `&Path` argument, allowing unit tests to use `tempfile::TempDir` instead of touching the real config directory. Integration tests in `tests/cli.rs` use `assert_cmd` with `cargo_bin_cmd!("veiled")` to run the compiled binary.
 
@@ -71,3 +71,4 @@ Data files live in `~/.config/veiled/`: `config.toml` (user settings) and `regis
 - HTTP requests: `ureq` crate for GitHub API calls (updater)
 - File locking: `fs2` crate for exclusive flock on registry
 - Checksums: `sha2` crate for SHA-256 binary validation
+- Extended attributes: `xattr` crate for Time Machine exclusion management

@@ -71,7 +71,7 @@ auto_update = true
 
 1. **Scans** your project directories looking for development artifacts
 2. **Identifies** what to exclude using `.gitignore` rules, a built-in list of known directories, and any custom exclusions you define
-3. **Applies** Time Machine exclusions via `tmutil` for each matched path
+3. **Applies** Time Machine exclusions for each matched path
 4. **Runs daily** as a background daemon, so new projects are covered automatically
 
 All exclusions are tracked in a local registry, so you can list, review, or reset them at any time.
