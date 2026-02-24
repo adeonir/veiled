@@ -32,6 +32,14 @@ predicates = "3"
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 
+[package.metadata.release]
+publish = false
+push = true
+push-remote = "origin"
+tag-prefix = "v"
+tag-name = "v{{version}}"
+pre-release-commit-message = "chore: release v{{version}}"
+
 [profile.release]
 strip = true
 lto = true
