@@ -3,10 +3,11 @@ use console::style;
 use crate::{daemon, updater};
 
 pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
+    let current = updater::current_version();
     println!(
         "{} {}",
         style("Checking for updates...").dim(),
-        style(format!("(current: {})", updater::current_version())).dim()
+        style(format!("(current: {current})")).dim()
     );
 
     let result = updater::check()?;
@@ -14,7 +15,7 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     if result.updated {
         println!(
             "{} {} -> {}",
-            style("Updated!").green().bold(),
+            style("Updated").blue().bold(),
             result.old_version,
             result.new_version
         );

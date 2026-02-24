@@ -54,7 +54,7 @@ pub fn execute(path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     println!(
         "{} {}",
-        style("Removed").green().bold(),
+        style("Removed").blue().bold(),
         lookup_path.display()
     );
 

@@ -1,4 +1,7 @@
+use std::time::Duration;
+
 use console::style;
+use indicatif::ProgressBar;
 
 use crate::{daemon, disksize, registry};
 
@@ -19,9 +22,15 @@ pub fn execute(refresh: bool) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if refresh {
+        let spinner = ProgressBar::new_spinner();
+        spinner.set_message("Calculating saved space...");
+        spinner.enable_steady_tick(Duration::from_millis(80));
+
         let total = disksize::calculate_total_size(reg.list());
         reg.saved_bytes = Some(total);
         guard.save(&reg)?;
+
+        spinner.finish_and_clear();
     }
 
     let saved = reg
