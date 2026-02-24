@@ -15,6 +15,14 @@ lefthook install
 cargo build
 ```
 
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feat/my-feature`)
+3. Make your changes and ensure all quality gates pass
+4. Commit using [conventional commits](https://www.conventionalcommits.org/) (e.g. `feat:`, `fix:`, `refactor:`)
+5. Push to your fork and open a pull request against `main`
+
 ## Running
 
 ```bash
