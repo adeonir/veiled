@@ -2,56 +2,32 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::thread;
 
 use console::style;
 
 use crate::builtins;
 use crate::config::Config;
-use crate::tmutil;
 use crate::verbose;
 
-pub fn scan(config: &Config) -> Vec<PathBuf> {
-    let candidates = collect_paths(config);
+pub fn scan(config: &Config, on_found: &dyn Fn(usize)) -> Vec<PathBuf> {
+    let candidates = collect_paths(config, on_found);
 
-    if candidates.is_empty() {
-        if verbose() {
-            eprintln!(
-                "{} scan found no new paths to exclude",
-                style("verbose:").dim()
-            );
-        }
-        return vec![];
-    }
-
-    let excluded = tmutil::are_excluded(&candidates).unwrap_or_else(|e| {
+    if verbose() && candidates.is_empty() {
         eprintln!(
-            "{} batch isexcluded failed: {e}",
-            style("warning:").yellow().bold()
-        );
-        vec![false; candidates.len()]
-    });
-
-    let results: Vec<PathBuf> = candidates
-        .into_iter()
-        .zip(excluded)
-        .filter(|(_, is_excluded)| !is_excluded)
-        .map(|(path, _)| path)
-        .collect();
-
-    if verbose() && results.is_empty() {
-        eprintln!(
-            "{} scan found no new paths to exclude",
+            "{} scan found no paths to evaluate",
             style("verbose:").dim()
         );
     }
 
-    results
+    candidates
 }
 
-fn collect_paths(config: &Config) -> Vec<PathBuf> {
-    let mut paths: HashSet<PathBuf> = traverse(&config.search_paths, &config.ignore_paths)
-        .into_iter()
-        .collect();
+fn collect_paths(config: &Config, on_found: &dyn Fn(usize)) -> Vec<PathBuf> {
+    let mut paths: HashSet<PathBuf> =
+        traverse(&config.search_paths, &config.ignore_paths, on_found)
+            .into_iter()
+            .collect();
 
     for extra in &config.extra_exclusions {
         let path = PathBuf::from(extra);
@@ -129,9 +105,14 @@ pub fn scan_git_repo(repo_path: &Path) -> Vec<PathBuf> {
     parse_git_ignored(repo_path, &stdout)
 }
 
-pub fn traverse(search_paths: &[String], ignore_paths: &[String]) -> Vec<PathBuf> {
+pub fn traverse(
+    search_paths: &[String],
+    ignore_paths: &[String],
+    on_found: &dyn Fn(usize),
+) -> Vec<PathBuf> {
     let ignore_set: HashSet<PathBuf> = ignore_paths.iter().map(PathBuf::from).collect();
     let mut results = Vec::new();
+    let mut git_repos = Vec::new();
     let mut stack: Vec<PathBuf> = search_paths.iter().map(PathBuf::from).collect();
 
     while let Some(dir) = stack.pop() {
@@ -151,7 +132,7 @@ pub fn traverse(search_paths: &[String], ignore_paths: &[String]) -> Vec<PathBuf
         }
 
         if dir.join(".git").is_dir() {
-            results.extend(scan_git_repo(&dir));
+            git_repos.push(dir);
             continue;
         }
 
@@ -178,9 +159,35 @@ pub fn traverse(search_paths: &[String], ignore_paths: &[String]) -> Vec<PathBuf
                 && builtins::is_builtin(&name.to_string_lossy())
             {
                 results.push(path);
+                on_found(results.len());
             } else {
                 stack.push(path);
             }
+        }
+    }
+
+    let chunk_size = (git_repos.len() / 8).max(1);
+    let chunks: Vec<Vec<PathBuf>> = git_repos
+        .chunks(chunk_size)
+        .map(<[PathBuf]>::to_vec)
+        .collect();
+
+    let handles: Vec<_> = chunks
+        .into_iter()
+        .map(|chunk| {
+            thread::spawn(move || {
+                chunk
+                    .iter()
+                    .flat_map(|repo| scan_git_repo(repo))
+                    .collect::<Vec<_>>()
+            })
+        })
+        .collect();
+
+    for handle in handles {
+        if let Ok(paths) = handle.join() {
+            results.extend(paths);
+            on_found(results.len());
         }
     }
 
@@ -332,7 +339,7 @@ mod tests {
         fs::create_dir(repo.join("node_modules")).unwrap();
         fs::write(repo.join("node_modules/pkg.json"), "{}").unwrap();
 
-        let results = traverse(&[dir.path().to_string_lossy().into_owned()], &[]);
+        let results = traverse(&[dir.path().to_string_lossy().into_owned()], &[], &|_| {});
 
         assert!(results.iter().any(|p| p.ends_with("node_modules")));
     }
@@ -344,7 +351,7 @@ mod tests {
         fs::create_dir(&project).unwrap();
         fs::create_dir(project.join("node_modules")).unwrap();
 
-        let results = traverse(&[dir.path().to_string_lossy().into_owned()], &[]);
+        let results = traverse(&[dir.path().to_string_lossy().into_owned()], &[], &|_| {});
 
         assert!(results.iter().any(|p| p.ends_with("node_modules")));
     }
@@ -359,6 +366,7 @@ mod tests {
         let results = traverse(
             &[dir.path().to_string_lossy().into_owned()],
             &[ignored.to_string_lossy().into_owned()],
+            &|_| {},
         );
 
         assert!(results.is_empty());
@@ -366,7 +374,7 @@ mod tests {
 
     #[test]
     fn traverse_skips_nonexistent_search_path() {
-        let results = traverse(&["/nonexistent/search/path".to_string()], &[]);
+        let results = traverse(&["/nonexistent/search/path".to_string()], &[], &|_| {});
 
         assert!(results.is_empty());
     }
@@ -381,7 +389,7 @@ mod tests {
 
         std::os::unix::fs::symlink(&project, project.join("link")).unwrap();
 
-        let results = traverse(&[dir.path().to_string_lossy().into_owned()], &[]);
+        let results = traverse(&[dir.path().to_string_lossy().into_owned()], &[], &|_| {});
 
         assert_eq!(results.len(), 1);
         assert!(results[0].ends_with("node_modules"));
@@ -397,7 +405,7 @@ mod tests {
         // nested builtin inside node_modules should not appear separately
         fs::create_dir(nm.join("target")).unwrap();
 
-        let results = traverse(&[dir.path().to_string_lossy().into_owned()], &[]);
+        let results = traverse(&[dir.path().to_string_lossy().into_owned()], &[], &|_| {});
 
         assert_eq!(results.len(), 1);
         assert!(results[0].ends_with("node_modules"));
@@ -429,7 +437,7 @@ mod tests {
             vec![],
         );
 
-        let results = collect_paths(&config);
+        let results = collect_paths(&config, &|_| {});
 
         assert!(results.iter().any(|p| p.ends_with("node_modules")));
     }
@@ -442,7 +450,7 @@ mod tests {
 
         let config = test_config(vec![], vec![], vec![extra.to_string_lossy().into_owned()]);
 
-        let results = collect_paths(&config);
+        let results = collect_paths(&config, &|_| {});
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0], extra);
@@ -452,7 +460,7 @@ mod tests {
     fn collect_paths_skips_nonexistent_extra_exclusions() {
         let config = test_config(vec![], vec![], vec!["/nonexistent/extra/path".to_string()]);
 
-        let results = collect_paths(&config);
+        let results = collect_paths(&config, &|_| {});
 
         assert!(results.is_empty());
     }
@@ -471,7 +479,7 @@ mod tests {
             vec![nm.to_string_lossy().into_owned()],
         );
 
-        let results = collect_paths(&config);
+        let results = collect_paths(&config, &|_| {});
 
         assert_eq!(
             results
@@ -497,7 +505,7 @@ mod tests {
             vec![],
         );
 
-        let results = collect_paths(&config);
+        let results = collect_paths(&config, &|_| {});
         let sorted: Vec<_> = {
             let mut s = results.clone();
             s.sort();

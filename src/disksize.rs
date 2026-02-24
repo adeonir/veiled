@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::thread;
 
 pub fn dir_size(path: &Path) -> u64 {
     let mut total = 0u64;
@@ -34,9 +35,17 @@ pub fn dir_size(path: &Path) -> u64 {
 }
 
 pub fn calculate_total_size(paths: &[String]) -> u64 {
-    paths
+    let handles: Vec<_> = paths
         .iter()
-        .map(|p| dir_size(Path::new(p)))
+        .map(|p| {
+            let p = PathBuf::from(p);
+            thread::spawn(move || dir_size(&p))
+        })
+        .collect();
+
+    handles
+        .into_iter()
+        .filter_map(|h| h.join().ok())
         .fold(0u64, u64::saturating_add)
 }
 
