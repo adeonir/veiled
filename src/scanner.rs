@@ -42,26 +42,21 @@ fn collect_paths(config: &Config, on_found: &dyn Fn(usize)) -> Vec<PathBuf> {
 }
 
 pub fn parse_git_ignored(repo_path: &Path, output: &str) -> Vec<PathBuf> {
-    let mut dirs = HashSet::new();
+    let mut paths = HashSet::new();
 
-    for line in output.split('\0') {
-        let line = line.trim();
-        if line.is_empty() {
+    for entry in output.split('\0') {
+        let entry = entry.trim();
+        if entry.is_empty() {
             continue;
         }
 
-        let mut prefix = PathBuf::new();
-        for component in Path::new(line).components() {
-            prefix.push(component);
-            let name = component.as_os_str().to_string_lossy();
-            if builtins::is_builtin(&name) {
-                dirs.insert(repo_path.join(&prefix));
-                break;
-            }
-        }
+        let Some(dir) = entry.strip_suffix('/') else {
+            continue;
+        };
+        paths.insert(repo_path.join(dir));
     }
 
-    dirs.into_iter().collect()
+    paths.into_iter().collect()
 }
 
 pub fn scan_git_repo(repo_path: &Path) -> Vec<PathBuf> {
@@ -73,6 +68,7 @@ pub fn scan_git_repo(repo_path: &Path) -> Vec<PathBuf> {
             "--ignored",
             "--others",
             "--exclude-standard",
+            "--directory",
             "-z",
         ])
         .output();
@@ -132,8 +128,7 @@ pub fn traverse(
         }
 
         if dir.join(".git").is_dir() {
-            git_repos.push(dir);
-            continue;
+            git_repos.push(dir.clone());
         }
 
         let Ok(entries) = fs::read_dir(&dir) else {
@@ -200,25 +195,29 @@ mod tests {
     use tempfile::TempDir;
 
     #[test]
-    fn parse_git_ignored_extracts_builtin_dirs() {
+    fn parse_git_ignored_extracts_directory_entries() {
         let repo = Path::new("/Users/dev/project");
-        let output =
-            "node_modules/express/index.js\0node_modules/.package-lock.json\0src/main.rs\0";
+        let output = "node_modules/\0target/\0";
 
         let results = parse_git_ignored(repo, output);
 
-        assert_eq!(results.len(), 1);
+        assert_eq!(results.len(), 2);
         assert!(results.contains(&repo.join("node_modules")));
+        assert!(results.contains(&repo.join("target")));
     }
 
     #[test]
-    fn parse_git_ignored_filters_non_builtin() {
+    fn parse_git_ignored_skips_files() {
         let repo = Path::new("/Users/dev/project");
-        let output = "logs/app.log\0src/generated/types.ts\0";
+        let output = "node_modules/\0.env\0dist/\0debug.log\0";
 
         let results = parse_git_ignored(repo, output);
 
-        assert!(results.is_empty());
+        assert_eq!(results.len(), 2);
+        assert!(results.contains(&repo.join("node_modules")));
+        assert!(results.contains(&repo.join("dist")));
+        assert!(!results.contains(&repo.join(".env")));
+        assert!(!results.contains(&repo.join("debug.log")));
     }
 
     #[test]
@@ -232,7 +231,7 @@ mod tests {
     #[test]
     fn parse_git_ignored_deduplicates_same_dir() {
         let repo = Path::new("/Users/dev/project");
-        let output = "target/debug/veiled\0target/release/veiled\0target/.rustc_info.json\0";
+        let output = "target/\0target/\0";
 
         let results = parse_git_ignored(repo, output);
 
@@ -241,33 +240,22 @@ mod tests {
     }
 
     #[test]
-    fn parse_git_ignored_handles_multiple_builtin_dirs() {
+    fn parse_git_ignored_only_includes_directories() {
         let repo = Path::new("/Users/dev/project");
-        let output = "node_modules/pkg/index.js\0target/debug/bin\0.next/cache/webpack\0";
+        let output = "playwright-report/\0coverage/\0node_modules/\0.env\0secrets.json\0";
 
         let results = parse_git_ignored(repo, output);
 
         assert_eq!(results.len(), 3);
+        assert!(results.contains(&repo.join("playwright-report")));
+        assert!(results.contains(&repo.join("coverage")));
         assert!(results.contains(&repo.join("node_modules")));
-        assert!(results.contains(&repo.join("target")));
-        assert!(results.contains(&repo.join(".next")));
     }
 
     #[test]
-    fn parse_git_ignored_finds_nested_builtin_in_monorepo() {
+    fn parse_git_ignored_handles_nested_dirs_in_monorepo() {
         let repo = Path::new("/Users/dev/monorepo");
-        let output = "packages/api/node_modules/express/index.js\0packages/api/node_modules/.package-lock.json\0";
-
-        let results = parse_git_ignored(repo, output);
-
-        assert_eq!(results.len(), 1);
-        assert!(results.contains(&repo.join("packages/api/node_modules")));
-    }
-
-    #[test]
-    fn parse_git_ignored_finds_multiple_nested_builtins() {
-        let repo = Path::new("/Users/dev/monorepo");
-        let output = "packages/api/node_modules/pkg/index.js\0apps/web/.next/cache/file\0apps/web/dist/bundle.js\0";
+        let output = "packages/api/node_modules/\0apps/web/.next/\0apps/web/dist/\0";
 
         let results = parse_git_ignored(repo, output);
 
@@ -278,46 +266,47 @@ mod tests {
     }
 
     #[test]
-    fn parse_git_ignored_deduplicates_nested_builtins() {
-        let repo = Path::new("/Users/dev/monorepo");
-        let output = "packages/api/node_modules/a/index.js\0packages/api/node_modules/b/index.js\0";
-
-        let results = parse_git_ignored(repo, output);
-
-        assert_eq!(results.len(), 1);
-        assert!(results.contains(&repo.join("packages/api/node_modules")));
-    }
-
-    #[test]
-    fn parse_git_ignored_handles_paths_with_special_chars() {
+    fn parse_git_ignored_strips_trailing_slash_from_dirs() {
         let repo = Path::new("/Users/dev/project");
-        let output = "node_modules/.pnpm/@fastify+send@4.1.0/node_modules/send/index.js\0";
+        let output = "node_modules/\0target/\0";
 
         let results = parse_git_ignored(repo, output);
 
-        assert_eq!(results.len(), 1);
         assert!(results.contains(&repo.join("node_modules")));
+        assert!(results.contains(&repo.join("target")));
+        assert!(!results.iter().any(|p| p.to_string_lossy().ends_with('/')));
     }
 
     #[test]
-    fn scan_git_repo_finds_ignored_builtin_dirs() {
+    fn scan_git_repo_finds_ignored_dirs() {
         let dir = TempDir::new().unwrap();
         let repo = dir.path();
 
         Command::new("git").arg("init").arg(repo).output().unwrap();
-        fs::write(repo.join(".gitignore"), "node_modules/\ntarget/\n").unwrap();
+        fs::write(
+            repo.join(".gitignore"),
+            "node_modules/\ntarget/\nplaywright-report/\n.env\n*.log\n",
+        )
+        .unwrap();
         fs::create_dir(repo.join("node_modules")).unwrap();
         fs::write(repo.join("node_modules/pkg.json"), "{}").unwrap();
         fs::create_dir(repo.join("target")).unwrap();
         fs::write(repo.join("target/output"), "bin").unwrap();
+        fs::create_dir(repo.join("playwright-report")).unwrap();
+        fs::write(repo.join("playwright-report/index.html"), "<html/>").unwrap();
+        fs::write(repo.join(".env"), "SECRET=123").unwrap();
+        fs::write(repo.join("debug.log"), "some log").unwrap();
         fs::create_dir(repo.join("src")).unwrap();
         fs::write(repo.join("src/main.rs"), "fn main() {}").unwrap();
 
         let results = scan_git_repo(repo);
 
-        assert_eq!(results.len(), 2);
+        assert_eq!(results.len(), 3);
         assert!(results.contains(&repo.join("node_modules")));
         assert!(results.contains(&repo.join("target")));
+        assert!(results.contains(&repo.join("playwright-report")));
+        assert!(!results.contains(&repo.join(".env")));
+        assert!(!results.contains(&repo.join("debug.log")));
     }
 
     #[test]

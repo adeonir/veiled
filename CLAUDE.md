@@ -30,7 +30,7 @@ src/
   daemon.rs        # launchd plist generation, install/uninstall/status for the daily agent
   registry.rs      # Tracks managed exclusions in ~/.config/veiled/registry.json (add/remove/list/contains) with exclusive file locking via LockedRegistry
   disksize.rs      # Parallel directory size calculation and human-readable formatting (KB/MB/GB)
-  scanner.rs       # Scans search paths: parallel git ls-files for repos, directory traversal for non-git dirs, dedup via builtins
+  scanner.rs       # Scans search paths: parallel git ls-files --directory for repos (all gitignored dirs), directory traversal for non-git dirs (builtin names), dedup
   tmutil.rs        # Manages Time Machine exclusions via xattr (add/remove/check); check_access() probes FDA permissions via tmutil process
   updater.rs       # GitHub Releases version check, binary download with SHA-256 checksum validation and atomic replacement
   commands/
@@ -52,7 +52,7 @@ The CLI uses clap derive macros. Each subcommand is a variant in `Commands` enum
 
 Config uses `#[serde(default)]` with TOML format and `snake_case` keys. Partial configs fill missing fields from defaults. All path fields undergo tilde expansion after loading (tilde notation is preserved on save). Legacy `config.json` files are automatically migrated to `config.toml` on first load. The tmutil module uses the `xattr` crate to directly read/write the `com.apple.metadata:com_apple_backup_excludeItem` extended attribute instead of spawning tmutil processes, making add/remove/check operations near-instant.
 
-Scanner combines two strategies: `git ls-files --ignored --exclude-standard` for git repos, and direct directory traversal for non-git dirs. Both filter through `builtins::is_builtin()`. Git repos are scanned in parallel (8 thread chunks). Results are deduplicated. When `--verbose` is active, scanner logs git failures, skipped directories, and empty results to stderr.
+Scanner combines two strategies: `git ls-files --ignored --others --exclude-standard --directory` for git repos (captures all gitignored directories), and direct directory traversal for non-git dirs (matches `builtins::is_builtin()` names). Individual files are skipped to preserve recoverable data in backups. Traverse also descends into git repos to find builtin directories that may not be in `.gitignore`. Git repos are scanned in parallel (8 thread chunks). Results are deduplicated. When `--verbose` is active, scanner logs git failures, skipped directories, and empty results to stderr.
 
 Data files live in `~/.config/veiled/`: `config.toml` (user settings) and `registry.json` (managed exclusions, cached saved bytes, and last update check timestamp). Both Config and Registry use exclusive file locking and a `load_from`/`save_to` pattern that accepts a `&Path` argument, allowing unit tests to use `tempfile::TempDir` instead of touching the real config directory. Integration tests in `tests/cli.rs` use `assert_cmd` with `cargo_bin_cmd!("veiled")` to run the compiled binary.
 
